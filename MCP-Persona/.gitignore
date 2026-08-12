@@ -1,0 +1,47 @@
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Project-local non-source directories
+docs/
+examples/
+results/
+
+# Editors, test caches, and generated artifacts
+.vscode/
+.idea/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.hypothesis/
+.ipynb_checkpoints/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+node_modules/
+.npm/
+.yarn/cache/
+.pnpm-store/
+.eslintcache
+.parcel-cache/
+.next/cache/
+*.swp
+*.swo
+*~

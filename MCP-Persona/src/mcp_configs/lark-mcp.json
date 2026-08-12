@@ -1,0 +1,18 @@
+{
+    "mcpServers": {
+        "lark_mcp": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@larksuiteoapi/lark-mcp",
+                "mcp",
+                "-a",
+                "<YOUR_API_KEY>",
+                "-s",
+                "<YOUR_API_KEY>",
+                "-t",
+                "im.v1.message.create,im.v1.chat.get,im.v1.message.list,im.v1.chat.create,preset.calendar.default,contact.v3.user.batchGetId,contact.v3.user.get,calendar.v4.calendar.list,calendar.v4.calendarEvent.list,calendar.v4.calendarEventAttendee.create,im.v1.chat.list,im.v1.chatMembers.get"
+            ]
+        }
+    }
+}

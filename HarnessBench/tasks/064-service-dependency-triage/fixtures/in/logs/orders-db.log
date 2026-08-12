@@ -1,0 +1,3 @@
+2026-03-22T14:10:00Z warn cpu_high cpu=86 pct maintenance=vacuum
+2026-03-22T14:10:30Z info p95_query_ms=35 connections=64 errors=0
+2026-03-22T14:11:00Z info no failed checkout transaction reached orders-db for request_id=req-8812

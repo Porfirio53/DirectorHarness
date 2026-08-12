@@ -1,0 +1,3 @@
+2026-03-22T14:08:59Z warn token validation failed upstream=auth-gateway reason=issuer_not_allowed issuer=partner-v2
+2026-03-22T14:09:04Z error create_payment rejected request_id=req-8812 auth_result=invalid_issuer
+2026-03-22T14:11:11Z info order-db dependency not used before auth gate for failing requests

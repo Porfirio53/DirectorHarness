@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "reddit": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "reddit",
+        "--key",
+        "<YOUR_API_KEY>"
+      ]
+    }
+  }
+}

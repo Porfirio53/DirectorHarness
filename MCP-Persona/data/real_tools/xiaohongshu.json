@@ -1,0 +1,292 @@
+{
+  "xiaohongshu:check_login_status": {
+    "name": "check_login_status",
+    "original_name": "check_login_status",
+    "server": "default-server",
+    "description": "检查小红书登录状态",
+    "input_schema": {
+      "type": "object"
+    }
+  },
+  "xiaohongshu:delete_cookies": {
+    "name": "delete_cookies",
+    "original_name": "delete_cookies",
+    "server": "default-server",
+    "description": "删除 cookies 文件，重置登录状态。删除后需要重新登录。",
+    "input_schema": {
+      "type": "object"
+    }
+  },
+  "xiaohongshu:favorite_feed": {
+    "name": "favorite_feed",
+    "original_name": "favorite_feed",
+    "server": "default-server",
+    "description": "收藏指定笔记或取消收藏（如已收藏将跳过收藏，如未收藏将跳过取消收藏）",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "feed_id",
+        "xsec_token"
+      ],
+      "properties": {
+        "feed_id": {
+          "type": "string",
+          "description": "小红书笔记ID，从Feed列表获取"
+        },
+        "unfavorite": {
+          "type": "boolean",
+          "description": "是否取消收藏，true为取消收藏，false或未设置则为收藏"
+        },
+        "xsec_token": {
+          "type": "string",
+          "description": "访问令牌，从Feed列表的xsecToken字段获取"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:get_feed_detail": {
+    "name": "get_feed_detail",
+    "original_name": "get_feed_detail",
+    "server": "default-server",
+    "description": "获取小红书笔记详情，返回笔记内容、图片、作者信息、互动数据（点赞/收藏/分享数）及评论列表",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "feed_id",
+        "xsec_token"
+      ],
+      "properties": {
+        "feed_id": {
+          "type": "string",
+          "description": "小红书笔记ID，从Feed列表获取"
+        },
+        "xsec_token": {
+          "type": "string",
+          "description": "访问令牌，从Feed列表的xsecToken字段获取"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:get_login_qrcode": {
+    "name": "get_login_qrcode",
+    "original_name": "get_login_qrcode",
+    "server": "default-server",
+    "description": "获取登录二维码（返回 Base64 图片和超时时间）",
+    "input_schema": {
+      "type": "object"
+    }
+  },
+  "xiaohongshu:like_feed": {
+    "name": "like_feed",
+    "original_name": "like_feed",
+    "server": "default-server",
+    "description": "为指定笔记点赞或取消点赞（如已点赞将跳过点赞，如未点赞将跳过取消点赞）",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "feed_id",
+        "xsec_token"
+      ],
+      "properties": {
+        "feed_id": {
+          "type": "string",
+          "description": "小红书笔记ID，从Feed列表获取"
+        },
+        "unlike": {
+          "type": "boolean",
+          "description": "是否取消点赞，true为取消点赞，false或未设置则为点赞"
+        },
+        "xsec_token": {
+          "type": "string",
+          "description": "访问令牌，从Feed列表的xsecToken字段获取"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:list_feeds": {
+    "name": "list_feeds",
+    "original_name": "list_feeds",
+    "server": "default-server",
+    "description": "获取首页 Feeds 列表",
+    "input_schema": {
+      "type": "object"
+    }
+  },
+  "xiaohongshu:post_comment_to_feed": {
+    "name": "post_comment_to_feed",
+    "original_name": "post_comment_to_feed",
+    "server": "default-server",
+    "description": "发表评论到小红书笔记",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "feed_id",
+        "xsec_token",
+        "content"
+      ],
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "评论内容"
+        },
+        "feed_id": {
+          "type": "string",
+          "description": "小红书笔记ID，从Feed列表获取"
+        },
+        "xsec_token": {
+          "type": "string",
+          "description": "访问令牌，从Feed列表的xsecToken字段获取"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:publish_content": {
+    "name": "publish_content",
+    "original_name": "publish_content",
+    "server": "default-server",
+    "description": "发布小红书图文内容",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "title",
+        "content",
+        "images"
+      ],
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "正文内容，不包含以#开头的标签内容，所有话题标签都用tags参数来生成和提供即可"
+        },
+        "images": {
+          "type": "array",
+          "description": "图片路径列表（至少需要1张图片）。支持两种方式：1. HTTP/HTTPS图片链接（自动下载）；2. 本地图片绝对路径（推荐，如:/Users/user/image.jpg）",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "description": "话题标签列表（可选参数），如 [美食, 旅行, 生活]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string",
+          "description": "内容标题（小红书限制：最多20个中文字或英文单词）"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:publish_with_video": {
+    "name": "publish_with_video",
+    "original_name": "publish_with_video",
+    "server": "default-server",
+    "description": "发布小红书视频内容（仅支持本地单个视频文件）",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "title",
+        "content",
+        "video"
+      ],
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "正文内容，不包含以#开头的标签内容，所有话题标签都用tags参数来生成和提供即可"
+        },
+        "tags": {
+          "type": "array",
+          "description": "话题标签列表（可选参数），如 [美食, 旅行, 生活]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string",
+          "description": "内容标题（小红书限制：最多20个中文字或英文单词）"
+        },
+        "video": {
+          "type": "string",
+          "description": "本地视频绝对路径（仅支持单个视频文件，如:/Users/user/video.mp4）"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:search_feeds": {
+    "name": "search_feeds",
+    "original_name": "search_feeds",
+    "server": "default-server",
+    "description": "搜索小红书内容（需要已登录）",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "keyword"
+      ],
+      "properties": {
+        "filters": {
+          "type": "object",
+          "description": "筛选选项",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "位置距离: 不限|同城|附近,默认为'不限'"
+            },
+            "note_type": {
+              "type": "string",
+              "description": "笔记类型: 不限|视频|图文,默认为'不限'"
+            },
+            "publish_time": {
+              "type": "string",
+              "description": "发布时间: 不限|一天内|一周内|半年内,默认为'不限'"
+            },
+            "search_scope": {
+              "type": "string",
+              "description": "搜索范围: 不限|已看过|未看过|已关注,默认为'不限'"
+            },
+            "sort_by": {
+              "type": "string",
+              "description": "排序依据: 综合|最新|最多点赞|最多评论|最多收藏,默认为'综合'"
+            }
+          },
+          "additionalProperties": false
+        },
+        "keyword": {
+          "type": "string",
+          "description": "搜索关键词"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "xiaohongshu:user_profile": {
+    "name": "user_profile",
+    "original_name": "user_profile",
+    "server": "default-server",
+    "description": "获取指定的小红书用户主页，返回用户基本信息，关注、粉丝、获赞量及其笔记内容",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "user_id",
+        "xsec_token"
+      ],
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "description": "小红书用户ID，从Feed列表获取"
+        },
+        "xsec_token": {
+          "type": "string",
+          "description": "访问令牌，从Feed列表的xsecToken字段获取"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

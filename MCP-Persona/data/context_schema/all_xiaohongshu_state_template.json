@@ -1,0 +1,85 @@
+{
+    "user_id": { "type": "special", "example": "92c19b66c2a5d765afd84b68" },
+    "nickname": {"type": "llm", "prompt_hint": "Create a unique nickname (CN/EN). You get SEED={seed}. Include two letters derived from SEED (0-9→A-J) anywhere in the name. Output only the nickname.", "max_tokens": 34 },
+    "nickName":{ "type": "enum", "choices": [""] },
+    "gender": { "type": "enum", "choices": [0, 1] },
+    "ipLocation": { "type": "enum","choices": ["北京", "上海", "广东", "江苏", "浙江", "福建", "山东", "河南", "湖北", "湖南", "四川", "贵州", "云南", "陕西", "甘肃", "青海", "宁夏", "新疆", "西藏", "中国台湾", "中国香港", "中国澳门","美国","日本","韩国","德国","英国","加拿大","法国","新加坡","马来西亚","泰国"] },
+    "desc": { "type": "llm", "prompt_hint": "可选简介；要么留空，要么是一句不太长的有点个性的话", "max_tokens": 64 },
+    "avatar": { "type": "special", "generator": "avatar_xhs",  "generator_params": { "type": "avatar" } },
+    "imageb": {"type":"special", "generator": "avatar_xhs", "generator_params": { "type": "imageb"}},
+    "images": {"type":"special", "generator": "avatar_xhs", "generator_params": { "type": "images" }},
+    "redId": { "type": "special" },
+    "interactions.follows.name": { "type": "enum", "choices": ["关注"] },
+    "interactions.fans.name": { "type": "enum", "choices": ["粉丝"] },
+    "interactions.interaction.name": { "type": "enum", "choices": ["获赞与收藏"] },
+    "interactions.follows.count":{ "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+    "interactions.fans.count": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+    "interactions.interaction.count": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 10000 } },
+    "feeds": {
+          "id":{
+            "xsecToken": { "type": "special", "example": "LpYbWPlMlXcEugn4Us354uSyYRmVvVUVMA9mQSbxIMA=" },
+            "id": { "type": "special", "example": "2c1c1f3a3d08e85da2e2010a" },
+            "modelType": { "type": "enum", "choices": [""] },
+            "time": { "type": "special", "generator": "random_timestamp", "generator_params": { "min": 1763634503000, "max": 1770126716000 } },
+            "noteCard.type": { "type": "enum", "choices": ["normal"] },
+            "noteCard.displayTitle": { "type": "llm", "prompt_hint": "必填中文帖子标题；要求精炼（10~18字优先，最多不超过25字），像真实小红书标题。\n\n【强约束：主题要轮换】从下面 6 大类里“随机选 1 类”生成标题；同一批数据里尽量不要老是探店/咖啡店。\n- A 生活探店/城市发现（不要总写咖啡店，可在餐馆/奶茶/面包甜品/小吃/书店/展览/市集/公园之间轮换）：\n  例：成都春熙路新开的书店太好逛了\n  例：上海这家面包店的盐可颂绝了\n  例：广州周末市集逛到停不下来\n  例：北京这家小馆子性价比超高\n- B 日常交流/失眠话题：\n  例：有和我一样凌晨还没睡的吗\n  例：最近作息彻底乱了怎么办\n  例：半夜突然emo，来聊聊天\n- C 焦虑/纠结求助（具体一点，不要泛泛而谈）：\n  例：offer二选一好纠结，求建议\n  例：想换城市但又怕后悔，怎么选\n  例：和朋友闹别扭了要不要主动和好\n- D 风景/旅行打卡（写清地点+感受）：\n  例：西安这片夕阳也太治愈了\n  例：重庆夜景真的会让人心软\n  例：云南这段徒步路线美到失语\n- E 历史上的今天/科普小知识（事件要具体）：\n  例：历史上的今天：某年某事发生\n  例：你知道某个冷知识吗（简短版）\n  例：今天才知道这段历史细节\n- F 菜谱/做法分享（写出成品或关键点）：\n  例：3步搞定番茄鸡蛋面\n  例：空气炸锅鸡翅零失败做法\n  例：家常红烧肉的关键在这一步\n\n【输出规则】只输出标题本身；不要加引号、不要加解释、不要加emoji。", "max_tokens": 50 },
+            "noteCard.desc": { "type": "llm", "prompt_hint": "中文，接着display title，描述这个帖子的内容，不要超过200个字", "max_tokens": 64 },
+            "noteCard.interactInfo.liked": { "type": "enum", "choices": [false, true] },
+            "noteCard.interactInfo.likedCount": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+            "noteCard.interactInfo.sharedCount":{ "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+            "noteCard.interactInfo.commentCount": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+            "noteCard.interactInfo.collectedCount": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+            "noteCard.interactInfo.collected": { "type": "enum", "choices": [false, true] },
+            "noteCard.cover.width": { "type": "special", "generator": "random_number", "generator_params": { "min": 100, "max": 1000 } },
+            "noteCard.cover.height": { "type": "special", "generator": "random_number", "generator_params": { "min": 100, "max": 1000 } },
+            "noteCard.cover.url": { "type": "enum", "choices": [""] },
+            "noteCard.cover.fileId": { "type": "enum", "choices": [""] },
+            "noteCard.cover.urlPre": { "type": "special", "generator": "random_url", "generator_params": {} },
+            "noteCard.cover.urlDefault": { "type": "special","generator": "random_url", "generator_params": {} },
+            "noteCard.imageList": { "type": "special", "generator": "random_image_list", "generator_params": {"urldefault":"special.feeds.noteCard.cover.urlDefault", "urlpre":"special.feeds.noteCard.cover.urlPre"} },
+            "comments": {
+              "id": {
+                "id": { "type": "special", "example": "2c11abac7ba9037d9a7446c1" },
+                "noteId": { "type": "special", "example": "2c1c1f3a3d08e85da2e2010a" },
+                "content": { "type": "llm" ,"prompt_hint": "必填评论内容；中文，评论内容，你作为一个路人看到这个帖子内容发表的评论，要求自然俏皮又符合上下文内容，不要超过50个字", "max_tokens": 64 },
+                "ipLocation": { "type": "enum","choices": ["北京", "上海", "广东", "江苏", "浙江", "福建", "山东", "河南", "湖北", "湖南", "四川", "贵州", "云南", "陕西", "甘肃", "青海", "宁夏", "新疆", "西藏", "中国台湾", "中国香港", "中国澳门","美国","日本","韩国","德国","英国","加拿大","法国"] },
+                "likeCount": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+                "createTime": { "type": "special", "generator": "random_timestamp", "generator_params": { "min": 1763634503000, "max": 1770126716000 } },
+                "liked": { "type": "enum", "choices": [false, true] },
+                "userInfo": {
+                        "userId": {"type": "special", "generator": "user_id"},
+                        "nickname": {"type": "special", "generator": "nickname"},
+                        "nickName": {"type": "enum", "choices": [""]},
+                        "avatar": {"type": "enum", "choices": [""]}
+                      },
+                "subCommentCount": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+                "subComments": {
+                  "id": {
+                    "id": { "type": "special", "example": "2c138ed12a6d4e482b654069" },
+                    "noteId": { "type": "special","generator": "reuse", "value": "special.feeds.comments.subcomments.id" },
+                    "content": { "type": "llm" ,"prompt_hint": "必填评论内容；中文，评论内容，你作为一个路人看到这个评论内容发表的子评论，要求自然俏皮又符合上下文内容，不能和原评论意思太像，不要超过50个字", "max_tokens": 64 },
+                    "ipLocation": {"type": "enum","choices": ["北京", "上海", "广东", "江苏", "浙江", "福建", "山东", "河南", "湖北", "湖南", "四川", "贵州", "云南", "陕西", "甘肃", "青海", "宁夏", "新疆", "西藏", "中国台湾", "中国香港", "中国澳门","美国","日本","韩国","德国","英国","加拿大","法国"] },
+                    "likeCount": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } },
+                    "createTime": { "type": "special", "generator": "random_timestamp", "generator_params": { "min": 1763634503000, "max": 1770126716000 } },
+                    "liked": { "type": "enum", "choices": [false, true] },
+                    "subCommentCount":{ "type": "enum", "choices": [0] },
+                    "subComments": { "type": "enum", "choices": [""] },
+                    "showTags": { "type": "enum", "choices": [] },
+                    "userInfo": {
+                        "userId": {"type": "special", "generator": "user_id"},
+                        "nickname": {"type": "special", "generator": "nickname"},
+                        "nickName": {"type": "enum", "choices": [""]},
+                        "avatar": {"type": "enum", "choices": [""]}
+                      }
+                  }
+                },
+                "showTags": { "type": "enum", "choices": [] }
+              },
+              "cursor": { "type": "enum", "choices": [""] },
+              "hasMore":{ "type": "enum", "choices": [true, false] }
+            },
+            "index": { "type": "special", "generator": "random_number", "generator_params": { "min": 1, "max": 1000 } }
+          }
+        }
+      }
+    

@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "universal_email": {
+            "command": "node",
+            "args": [
+                "./MCP-Persona/mcp_configs/all-envs/email/email-mcp/index.js"
+            ],
+            "env": {
+                "EMAIL_USER": "<YOUR_EMAIL>",
+                "EMAIL_PASSWORD": "<YOUR_PASSWORD>",
+                "EMAIL_TYPE": "163"
+            }
+        }
+    }
+}

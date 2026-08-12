@@ -1,0 +1,720 @@
+{
+  "instagram:create_carousel_container": {
+    "name": "create_carousel_container",
+    "original_name": "create_carousel_container",
+    "server": "instagram",
+    "description": "Create a draft carousel post with multiple images/videos before publishing.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Caption"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of child creation_ids (image/video items)"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": "string",
+          "description": "Instagram Business Account ID"
+        }
+      },
+      "required": [
+        "children",
+        "ig_user_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:create_media_container": {
+    "name": "create_media_container",
+    "original_name": "create_media_container",
+    "server": "instagram",
+    "description": "Create a draft media container for photos/videos/reels before publishing.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Post caption"
+        },
+        "content_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "photo",
+                "video",
+                "reel",
+                "carousel_item"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What you want to post: 'photo', 'video', 'reel', or 'carousel_item' (for carousel drafts)"
+        },
+        "cover_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Optional cover image URL for reels/videos"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": "string",
+          "description": "Instagram Business Account ID"
+        },
+        "image_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Public URL of the image"
+        },
+        "is_carousel_item": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "description": "Is Carousel Item"
+        },
+        "media_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Explicit media type override, e.g., REELS or CAROUSEL."
+        },
+        "video_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Public URL of the video"
+        }
+      },
+      "required": [
+        "ig_user_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:create_post": {
+    "name": "create_post",
+    "original_name": "create_post",
+    "server": "instagram",
+    "description": "Publish a draft media container to instagram (final publishing step).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "creation_id": {
+          "type": "string",
+          "description": "Draft ID returned from create actions"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": "string",
+          "description": "Instagram Business Account ID"
+        }
+      },
+      "required": [
+        "creation_id",
+        "ig_user_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_conversation": {
+    "name": "get_conversation",
+    "original_name": "get_conversation",
+    "server": "instagram",
+    "description": "Get details about a specific instagram dm conversation (participants, etc).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "description": "Conversation ID"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        }
+      },
+      "required": [
+        "conversation_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_post_comments": {
+    "name": "get_post_comments",
+    "original_name": "get_post_comments",
+    "server": "instagram",
+    "description": "Get comments on an instagram post.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Cursor for pagination - get comments after this cursor"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_post_id": {
+          "type": "string",
+          "description": "Instagram Post ID"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Number of comments to return (max 100)",
+          "default": 25
+        }
+      },
+      "required": [
+        "ig_post_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_post_insights": {
+    "name": "get_post_insights",
+    "original_name": "get_post_insights",
+    "server": "instagram",
+    "description": "Get instagram post insights/analytics (impressions, reach, engagement, etc.).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_post_id": {
+          "type": "string",
+          "description": "Instagram Post ID"
+        },
+        "metric": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Metrics to retrieve for the media"
+        }
+      },
+      "required": [
+        "ig_post_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_post_status": {
+    "name": "get_post_status",
+    "original_name": "get_post_status",
+    "server": "instagram",
+    "description": "Check the processing status of a draft post container.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "creation_id": {
+          "type": "string",
+          "description": "Post container creation id"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        }
+      },
+      "required": [
+        "creation_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_user_info": {
+    "name": "get_user_info",
+    "original_name": "get_user_info",
+    "server": "instagram",
+    "description": "Get instagram user info including profile details and statistics.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Instagram Business Account ID (optional, defaults to current user)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_user_insights": {
+    "name": "get_user_insights",
+    "original_name": "get_user_insights",
+    "server": "instagram",
+    "description": "Get instagram account-level insights/analytics (profile views, reach, impressions, etc.).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Instagram Business Account ID (optional, defaults to current user)"
+        },
+        "metric": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Metrics to retrieve for the user account"
+        },
+        "period": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Time period for insights (day, week, days_28)",
+          "default": "day"
+        },
+        "since": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Start date for insights (YYYY-MM-DD format)"
+        },
+        "until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "End date for insights (YYYY-MM-DD format)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:get_user_media": {
+    "name": "get_user_media",
+    "original_name": "get_user_media",
+    "server": "instagram",
+    "description": "Get instagram user's media (posts, photos, videos).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Cursor for pagination - get media after this cursor"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Instagram Business Account ID (optional, defaults to current user)"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Number of media items to return (max 100)",
+          "default": 25
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:list_all_conversations": {
+    "name": "list_all_conversations",
+    "original_name": "list_all_conversations",
+    "server": "instagram",
+    "description": "List all instagram dm conversations for the authenticated user.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Cursor for pagination"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Instagram Business Account ID (optional for /me/conversations)"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Limit",
+          "default": 25
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:list_all_messages": {
+    "name": "list_all_messages",
+    "original_name": "list_all_messages",
+    "server": "instagram",
+    "description": "List all messages from a specific instagram dm conversation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Cursor for pagination"
+        },
+        "conversation_id": {
+          "type": "string",
+          "description": "Conversation ID"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Limit",
+          "default": 25
+        }
+      },
+      "required": [
+        "conversation_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:mark_seen": {
+    "name": "mark_seen",
+    "original_name": "mark_seen",
+    "server": "instagram",
+    "description": "Mark instagram dm messages as read/seen for a specific user.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "recipient_id": {
+          "type": "string",
+          "description": "Recipient PSID"
+        }
+      },
+      "required": [
+        "recipient_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:reply_to_comment": {
+    "name": "reply_to_comment",
+    "original_name": "reply_to_comment",
+    "server": "instagram",
+    "description": "Reply to a comment on instagram media.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "ig_comment_id": {
+          "type": "string",
+          "description": "Instagram Comment ID to reply to"
+        },
+        "message": {
+          "type": "string",
+          "description": "Reply message text"
+        }
+      },
+      "required": [
+        "ig_comment_id",
+        "message"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:send_image": {
+    "name": "send_image",
+    "original_name": "send_image",
+    "server": "instagram",
+    "description": "Send an image via instagram dm to a specific user.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Caption"
+        },
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Graph Api Version",
+          "default": "v21.0"
+        },
+        "image_url": {
+          "type": "string",
+          "description": "Publicly accessible image URL"
+        },
+        "recipient_id": {
+          "type": "string",
+          "description": "Recipient PSID"
+        }
+      },
+      "required": [
+        "image_url",
+        "recipient_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "instagram:send_text_message": {
+    "name": "send_text_message",
+    "original_name": "send_text_message",
+    "server": "instagram",
+    "description": "Send a text message to an instagram user via dm.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "graph_api_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Instagram Graph API version",
+          "default": "v21.0"
+        },
+        "ig_user_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Instagram Business Account ID (optional when using /me/messages)"
+        },
+        "recipient_id": {
+          "type": "string",
+          "description": "Recipient PSID (Instagram-scoped ID)"
+        },
+        "reply_to_message_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Optional message ID to reply to"
+        },
+        "text": {
+          "type": "string",
+          "description": "Message text to send"
+        }
+      },
+      "required": [
+        "recipient_id",
+        "text"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

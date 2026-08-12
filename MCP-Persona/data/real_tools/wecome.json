@@ -1,0 +1,162 @@
+{
+  "wecome:send_text": {
+    "name": "send_text",
+    "original_name": "send_text",
+    "server": "mcp-wecombot-server",
+    "description": "Send a text message to WeCom group",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "Text content to send",
+          "type": "string"
+        },
+        "mentioned_list": {
+          "description": "List of user IDs to mention,Multiple people use commas to separate, such as @xiaoyang, @wike.",
+          "type": "string"
+        },
+        "mentioned_mobile_list": {
+          "description": "List of mobile numbers to mention,Multiple people use commas to separate, such as @xiaoyang, @wike.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    }
+  },
+  "wecome:send_markdown": {
+    "name": "send_markdown",
+    "original_name": "send_markdown",
+    "server": "mcp-wecombot-server",
+    "description": "Send a markdown message to WeCom group",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "Markdown content to send",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    }
+  },
+  "wecome:send_image": {
+    "name": "send_image",
+    "original_name": "send_image",
+    "server": "mcp-wecombot-server",
+    "description": "Send an image message to WeCom group",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "base64_data": {
+          "description": "Base64 encoded image data",
+          "type": "string"
+        },
+        "md5": {
+          "description": "MD5 hash of the image",
+          "type": "string"
+        }
+      },
+      "required": [
+        "base64_data",
+        "md5"
+      ]
+    }
+  },
+  "wecome:send_news": {
+    "name": "send_news",
+    "original_name": "send_news",
+    "server": "mcp-wecombot-server",
+    "description": "Send a news message to WeCom group",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Description of the news article",
+          "type": "string"
+        },
+        "picurl": {
+          "description": "Picture URL of the news article",
+          "type": "string"
+        },
+        "title": {
+          "description": "Title of the news article",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL of the news article",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ]
+    }
+  },
+  "wecome:send_template_card": {
+    "name": "send_template_card",
+    "original_name": "send_template_card",
+    "server": "mcp-wecombot-server",
+    "description": "Send a template card message to WeCom group",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "card_action_appid": {
+          "description": "App ID for the card action",
+          "type": "string"
+        },
+        "card_action_pagepath": {
+          "description": "Page path for the card action",
+          "type": "string"
+        },
+        "card_action_type": {
+          "description": "Type of the card action",
+          "type": "number"
+        },
+        "card_action_url": {
+          "description": "URL for the card action",
+          "type": "string"
+        },
+        "card_type": {
+          "description": "Type of the template card",
+          "type": "string"
+        },
+        "main_desc": {
+          "description": "Main description of the template card",
+          "type": "string"
+        },
+        "main_title": {
+          "description": "Main title of the template card",
+          "type": "string"
+        }
+      },
+      "required": [
+        "card_type",
+        "main_title",
+        "card_action_type"
+      ]
+    }
+  },
+  "wecome:upload_file": {
+    "name": "upload_file",
+    "original_name": "upload_file",
+    "server": "mcp-wecombot-server",
+    "description": "Upload a file to WeCom",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "description": "Path to the file to upload",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path"
+      ]
+    }
+  }
+}

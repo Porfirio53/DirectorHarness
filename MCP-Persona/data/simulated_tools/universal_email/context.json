@@ -1,0 +1,20 @@
+{
+  "mingyu.note@outlook.com": {
+    "email": "mingyu.note@outlook.com",
+    "password": "Ou3@kL9pR1v!d6",
+    "smtpHost": "smtp.office365.com",
+    "smtpPort": 587,
+    "smtpSecure": true,
+    "imapHost": "imap-mail.outlook.com",
+    "imapPort": 993,
+    "imapSecure": true,
+    "message": {
+      "to": [
+        "team.ops@exmail.qq.com"
+      ],
+      "subject": "需求确认",
+      "text": "有两个边界情况想确认：登录超时是否自动重试、失败次数上限是多少？",
+      "message_id": "7f1a2b3c-4d5e-4f6a-8b9c-0d1e2f3a4b5c@outlook.com"
+    }
+  }
+}

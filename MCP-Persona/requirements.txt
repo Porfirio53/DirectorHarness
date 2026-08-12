@@ -1,0 +1,9 @@
+aiohttp==3.13.2
+anyio==4.9.0
+httpx==0.28.1
+httpx-sse==0.4.0
+mcp==1.19.0
+pydantic==2.12.4
+pydantic-settings==2.11.0
+python-dotenv==1.1.0
+PyYAML==6.0.2

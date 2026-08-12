@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "wecome": {
+      "command": "./MCP-Persona/mcp_configs/all-envs/wecome/mcp-wecombot-server/dist/mcp-wecombot-server_linux_amd64",
+      "args": [
+        "&&"
+      ],
+      "env": {
+        "WECOM_BOT_WEBHOOK_KEY": "<YOUR_API_KEY>"
+      }
+    }
+  }
+}

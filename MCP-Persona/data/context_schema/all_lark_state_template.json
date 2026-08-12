@@ -1,0 +1,193 @@
+{
+  "name": { "type": "special", "example": "John Doe" },
+  "open_id": { "type": "special", "example": "ou_4c736ee78db7d06d233c8e6da9a2483e" },
+  "union_id": { "type": "special", "example": "ou_4c736ee78db7d06d233c8e6da9a2483e" },
+  "user_id": { "type": "special", "example": "kuveb6nk" },
+  "avatar.avatar_240": {
+    "type": "special",
+    "generator": "avatar_lark",
+    "generator_params": { "size": 240, "type": "user", "open_id": "special.open_id" }
+  },
+  "avatar.avatar_640": {
+    "type": "special",
+    "generator": "avatar_lark",
+    "generator_params": { "size": 640, "type": "user", "open_id": "special.open_id" }
+  },
+  "avatar.avatar_72": {
+    "type": "special",
+    "generator": "avatar_lark",
+    "generator_params": { "size": 72, "type": "user", "open_id": "special.open_id" }
+  },
+  "avatar.avatar_origin": {
+    "type": "special",
+    "generator": "avatar_lark",
+    "generator_params": { "size": "noop", "type": "user", "open_id": "special.open_id" }
+  },
+  "city": {
+    "type": "llm",
+    "prompt_hint": "可选城市；要么留空（直接输出空字符串），要么只输出城市名（不要带引号/解释）",
+    "max_tokens": 32
+  },
+  "country": {
+    "type": "llm",
+    "prompt_hint": "可选国家；要么留空（直接输出空字符串），要么只输出国家名；如提供城市则尽量匹配",
+    "max_tokens": 32
+  },
+  "department_ids": { "type": "enum", "choices": ["0"] },
+  "description": { "type": "llm", "prompt_hint": "可选简介；要么留空，要么不超过 20 个英文单词", "max_tokens": 64 },
+  "email": { "type": "llm", "prompt_hint": "可选邮箱；要么留空，要么输出一个看起来合理的邮箱", "max_tokens": 48 },
+  "employee_no": { "type": "enum", "choices": [""] },
+  "employee_type": { "type": "enum", "choices": [0, 1] },
+  "en_name": { "type": "llm", "prompt_hint": "可选英文名；要么留空，要么只输出英文名（不要解释）", "max_tokens": 24 },
+  "gender": { "type": "enum", "choices": [0, 1] },
+  "is_tenant_manager": { "type": "enum", "choices": [false] },
+  "job_title": { "type": "llm", "prompt_hint": "可选职位；要么留空，要么不超过 4 个英文单词", "max_tokens": 24 },
+  "join_time": { "type": "enum", "choices": [0] },
+  "mobile": { "type": "llm", "prompt_hint": "可选手机号；要么留空，要么输出 +86 开头的中国手机号，如 +8618082027967", "max_tokens": 24 },
+  "mobile_visible": { "type": "enum", "choices": [true] },
+  "tenant_key": { "type": "special", "example": "1a61c6724cc3975d" },
+  "orders": { "type": "enum", "choices": [[]] },
+  "status.is_activated": { "type": "enum", "choices": [false, true] },
+  "status.is_exited": { "type": "enum", "choices": [false] },
+  "status.is_frozen": { "type": "enum", "choices": [false] },
+  "status.is_resigned": { "type": "enum", "choices": [false] },
+  "status.is_unjoin": { "type": "enum", "choices": [false] },
+  "work_station": { "type": "enum", "choices": [""] },
+
+  "calendars": {
+    "*": {
+      "calendar_id": { "type": "special", "example": "feishu.cn_jbqxnwxh969119gebejln9@group.calendar.feishu.cn" },
+      "calendar_id_numerical": { "type": "special", "example": "18028718675329652754" },
+      "color": { "type": "special", "generator": "color" },
+      "description": { "type": "llm", "prompt_hint": "可选日历描述；要么留空，要么不超过 20 个英文单词", "max_tokens": 64 },
+      "permissions": { "type": "enum", "choices": ["private", "public"] },
+      "role": { "type": "enum", "choices": ["owner", "editor", "viewer"] },
+      "summary": { "type": "llm", "prompt_hint": "可选日历标题；要么留空，要么不超过 30 个字符", "max_tokens": 48 },
+      "summary_alias": { "type": "enum", "choices": [""] },
+      "type": { "type": "enum", "choices": ["primary", "group", "other"] },
+
+      "events": {
+        "*": {
+          "event_id": { "type": "special", "example": "af1682aa0c8b41f8da6e4d9836d1ba43_0" },
+
+          "attendee_ability": { "type": "enum", "choices": ["can_see_others", "can_invite_others", "can_modify_event"] },
+          "color": { "type": "special", "generator": "color" },
+          "create_time": { "type": "llm", "prompt_hint": "事件创建时间，输出 Unix 秒级时间戳字符串（如 1772855036），应在过去", "max_tokens": 24 },
+          "description": { "type": "llm", "prompt_hint": "可选事件描述；要么留空，要么 1-3 句话英文", "max_tokens": 160 },
+          "end_time.timezone": { "type": "enum", "choices": ["UTC", "Asia/Shanghai"] },
+          "end_time.timestamp": { "type": "llm", "prompt_hint": "事件结束时间，Unix 秒级时间戳字符串；应大于 start_time.timestamp", "max_tokens": 24 },
+          "free_busy_status": { "type": "enum", "choices": ["busy", "free"] },
+          "is_exception": { "type": "enum", "choices": [false] },
+          "recurrence": { "type": "enum", "choices": [""] },
+          "start_time.timezone": { "type": "enum", "choices": ["UTC", "Asia/Shanghai"] },
+          "start_time.timestamp": { "type": "llm", "prompt_hint": "事件开始时间，Unix 秒级时间戳字符串；应在未来", "max_tokens": 24 },
+          "status": { "type": "enum", "choices": ["confirmed", "tentative", "cancelled"] },
+          "summary": { "type": "llm", "prompt_hint": "可选事件标题；要么留空，要么不超过 30 个字符", "max_tokens": 48 },
+
+          "vchat.meeting_url": {
+            "type": "special",
+            "generator": "vchat_meeting_url",
+            "generator_params": { "event_id": "special.event_id" }
+          },
+          "vchat.vc_type": { "type": "enum", "choices": ["vc"] },
+          "visibility": { "type": "enum", "choices": ["public", "private", "default"] },
+
+          "app_link": {
+            "type": "special",
+            "generator": "event_app_link",
+            "generator_params": {
+              "calendar_id_numerical": "special.calendar_id_numerical",
+              "event_id": "special.event_id",
+              "start_ts": "flesh.start_time.timestamp"
+            }
+          },
+
+          "attendees": {
+            "*": {
+              "attendee_id": { "type": "special", "example": "user_1308523287452461237" },
+              "user_id": { "type": "special", "generator": "reuse", "value": "identifier.user_id" },
+              "name": { "type": "special", "generator": "reuse", "value": "identifier.name" },
+              "is_organizer": { "type": "enum", "choices": [true] }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "chats": {
+    "chat_id": { "type": "special", "example": "oc_50df962af41184f144d3ebf61b0c7571" },
+    "owner_id": { "type": "special", "example": "ou_4c736ee78db7d06d233c8e6da9a2483e" },
+    "tenant_key": { "type": "special", "generator": "reuse", "value": "identifier.tenant_key" },
+
+    "add_member_permission": { "type": "enum", "choices": ["all_members"] },
+    "at_all_permission": { "type": "enum", "choices": ["all_members"] },
+    "avatar": {
+      "type": "special",
+      "generator": "avatar_lark",
+      "generator_params": { "size": 100, "type": "chat", "open_id": "special.owner_id" }
+    },
+    "bot_count": { "type": "enum", "choices": ["1"] },
+    "bot_manager_id_list": { "type": "enum", "choices": [null] },
+    "chat_mode": { "type": "enum", "choices": ["group"] },
+    "chat_status": { "type": "enum", "choices": ["normal"] },
+    "chat_tag": { "type": "enum", "choices": ["no_tag"] },
+    "chat_type": { "type": "enum", "choices": ["private"] },
+    "description": {
+      "type": "llm",
+      "prompt_hint": "聊天室简介；1 句英文，适合技术讨论群",
+      "max_tokens": 64
+    },
+    "edit_permission": { "type": "enum", "choices": ["only_owner"] },
+    "external": { "type": "enum", "choices": [false] },
+    "group_message_type": { "type": "enum", "choices": ["chat"] },
+    "hide_member_count_setting": { "type": "enum", "choices": ["all_members"] },
+    "join_message_visibility": { "type": "enum", "choices": ["all_members"] },
+    "leave_message_visibility": { "type": "enum", "choices": ["only_owner"] },
+    "membership_approval": { "type": "enum", "choices": ["no_approval_required"] },
+    "moderation_permission": { "type": "enum", "choices": ["only_owner"] },
+    "name": { "type": "llm", "prompt_hint": "聊天室名字；2-10 个英文字符或 1-4 个英文单词，简短有辨识度", "max_tokens": 24 },
+    "pin_manage_setting": { "type": "enum", "choices": ["all_members"] },
+    "restricted_mode_setting.download_has_permission_setting": { "type": "enum", "choices": ["only_owner"] },
+    "restricted_mode_setting.message_has_permission_setting": { "type": "enum", "choices": ["all_members"] },
+    "restricted_mode_setting.screenshot_has_permission_setting": { "type": "enum", "choices": ["all_members"] },
+    "restricted_mode_setting.status": { "type": "enum", "choices": [false] },
+    "share_card_permission": { "type": "enum", "choices": ["allowed"] },
+    "urgent_setting": { "type": "enum", "choices": ["only_owner"] },
+    "user_manager_id_list": { "type": "enum", "choices": [[]] },
+    "video_conference_setting": { "type": "enum", "choices": ["only_owner"] },
+
+    "members": {
+      "*": {
+        "member_id": { "type": "special", "generator": "reuse", "value": "identifier.user_id" },
+        "member_id_type": { "type": "enum", "choices": ["user_id"] },
+        "name": { "type": "special", "generator": "reuse", "value": "identifier.name" },
+        "tenant_key": { "type": "special", "generator": "reuse", "value": "identifier.tenant_key" },
+        "is_owner": { "type": "enum", "choices": [true] }
+      }
+    },
+
+    "messages": {
+      "*": {
+        "message_id": { "type": "special", "example": "om_a50126fe4f6942c7d3d059aaca736167" },
+        "body.content": {
+          "type": "llm",
+          "prompt_hint": "生成一条简短自然的英文聊天消息内容（不超过 20 个英文单词）",
+          "max_tokens": 64
+        },
+        "create_time": { "type": "llm", "prompt_hint": "输出 Unix 秒级时间戳字符串（如 1772859036）", "max_tokens": 24 },
+        "deleted": { "type": "enum", "choices": [false] },
+        "msg_type": { "type": "enum", "choices": ["text"] },
+        "sender.id": { "type": "special", "generator": "reuse", "value": "identifier.open_id" },
+        "sender.id_type": { "type": "enum", "choices": ["open_id"] },
+        "sender.sender_type": { "type": "enum", "choices": ["user"] },
+        "sender.tenant_key": { "type": "special", "generator": "reuse", "value": "identifier.tenant_key" },
+        "update_time": { "type": "llm", "prompt_hint": "输出 Unix 秒级时间戳字符串（如 1772859036）", "max_tokens": 24 },
+        "updated": { "type": "enum", "choices": [false] }
+      }
+    }
+  }
+}
+
+
+

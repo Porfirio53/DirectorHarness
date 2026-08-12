@@ -1,0 +1,226 @@
+{
+  "universal-email:send_email": {
+    "name": "send_email",
+    "original_name": "send_email",
+    "server": "universal-email",
+    "description": "发送邮件",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "收件人邮箱地址列表"
+        },
+        "cc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "抄送邮箱地址列表（可选）"
+        },
+        "bcc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "密送邮箱地址列表（可选）"
+        },
+        "subject": {
+          "type": "string",
+          "description": "邮件主题"
+        },
+        "text": {
+          "type": "string",
+          "description": "纯文本邮件内容"
+        },
+        "html": {
+          "type": "string",
+          "description": "HTML格式邮件内容（可选）"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filename": {
+                "type": "string",
+                "description": "附件文件名"
+              },
+              "path": {
+                "type": "string",
+                "description": "附件文件路径"
+              },
+              "content": {
+                "type": "string",
+                "description": "附件内容(base64编码)"
+              }
+            }
+          },
+          "description": "邮件附件列表（可选）"
+        }
+      },
+      "required": [
+        "to",
+        "subject",
+        "text"
+      ]
+    }
+  },
+  "universal-email:get_recent_emails": {
+    "name": "get_recent_emails",
+    "original_name": "get_recent_emails",
+    "server": "universal-email",
+    "description": "获取最近三天的邮件列表",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "number",
+          "description": "返回邮件数量限制（默认20）"
+        },
+        "days": {
+          "type": "number",
+          "description": "获取最近几天的邮件（默认3天）"
+        }
+      },
+      "required": []
+    }
+  },
+  "universal-email:get_email_content": {
+    "name": "get_email_content",
+    "original_name": "get_email_content",
+    "server": "universal-email",
+    "description": "获取指定邮件的详细内容",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "邮件唯一标识符"
+        }
+      },
+      "required": [
+        "uid"
+      ]
+    }
+  },
+  "universal-email:setup_email_account": {
+    "name": "setup_email_account",
+    "original_name": "setup_email_account",
+    "server": "universal-email",
+    "description": "设置邮箱账号（自动识别邮箱类型并配置服务器）",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "邮箱地址（如 user@qq.com）"
+        },
+        "password": {
+          "type": "string",
+          "description": "邮箱密码或授权码"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "qq",
+            "163",
+            "gmail",
+            "outlook",
+            "exmail",
+            "aliyun",
+            "sina",
+            "sohu"
+          ],
+          "description": "邮箱提供商（可选，不填写则自动识别）"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
+    }
+  },
+  "universal-email:list_supported_providers": {
+    "name": "list_supported_providers",
+    "original_name": "list_supported_providers",
+    "server": "universal-email",
+    "description": "列出支持的邮箱提供商",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  },
+  "universal-email:configure_email_server": {
+    "name": "configure_email_server",
+    "original_name": "configure_email_server",
+    "server": "universal-email",
+    "description": "手动配置邮箱服务器设置（高级用户使用）",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "smtpHost": {
+          "type": "string",
+          "description": "SMTP服务器地址"
+        },
+        "smtpPort": {
+          "type": "number",
+          "description": "SMTP端口"
+        },
+        "smtpSecure": {
+          "type": "boolean",
+          "description": "是否使用SSL"
+        },
+        "imapHost": {
+          "type": "string",
+          "description": "IMAP服务器地址"
+        },
+        "imapPort": {
+          "type": "number",
+          "description": "IMAP端口"
+        },
+        "imapSecure": {
+          "type": "boolean",
+          "description": "是否使用SSL"
+        },
+        "user": {
+          "type": "string",
+          "description": "邮箱账号"
+        },
+        "password": {
+          "type": "string",
+          "description": "邮箱密码或授权码"
+        }
+      },
+      "required": [
+        "user",
+        "password"
+      ]
+    }
+  },
+  "universal-email:test_email_connection": {
+    "name": "test_email_connection",
+    "original_name": "test_email_connection",
+    "server": "universal-email",
+    "description": "测试邮箱服务器连接",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "testType": {
+          "type": "string",
+          "enum": [
+            "smtp",
+            "imap",
+            "both"
+          ],
+          "description": "测试类型：smtp（发送）、imap（接收）或both（全部）"
+        }
+      },
+      "required": []
+    }
+  }
+}

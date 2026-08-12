@@ -1,0 +1,3 @@
+2026-03-22T14:09:41Z error submit_order failed status=401 upstream=payment-api request_id=req-8812
+2026-03-22T14:10:03Z warn dependency payment-api returned auth_failed invalid issuer for checkout session cko-17
+2026-03-22T14:10:45Z info static assets served normally after retry; user checkout flow still blocked

@@ -1,0 +1,4 @@
+2026-03-22T14:05:12Z info deployed change_id=AUTH-2026-0318 jwks_namespace=partner-v2 issuer=partner-v2
+2026-03-22T14:08:33Z warn jwks cache lookup miss namespace=partner-v2 fallback=partner-v1
+2026-03-22T14:08:34Z error validation failed reason=issuer_not_allowed token_issuer=partner-v2 allowed_issuers=partner-v1
+2026-03-22T14:12:02Z warn rollback candidate: restore allowed_issuers partner-v2 or revert AUTH-2026-0318

@@ -1,0 +1,79 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+.openharness-venv/
+venv/
+env/
+.env
+*.so
+.coverage
+htmlcov/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.python-version
+
+# React TUI frontend
+frontend/terminal/node_modules/
+
+# User data (never commit API keys or session data)
+.openharness/
+react_tui_smoke.txt
+
+# OS
+.DS_Store
+Thumbs.db
+uv.lock
+
+# Generated MCP-Persona runs. Compact reports and frozen manifests live in
+# docs/research/mcp-persona-week1-final-report/ and remain versioned.
+docs/research/mcp-persona-task-smoke.local.json
+docs/research/mcp-persona-week1-audit.local.json
+docs/research/mcp-persona-week1-tasks.local.csv
+docs/research/mcp-persona-week1-local/
+docs/research/mcp-persona-week1-local-fixed/
+docs/research/mcp-persona-week1-final-verified/
+docs/research/mcp-persona-week1-representative-fixed/
+docs/research/mcp-persona-week1-retest-*/
+docs/research/mcp-persona-week1-blind-*/
+docs/research/mcp-persona-week1-semantic-guided/
+docs/research/mcp-persona-verified52-openharness-baseline-v1/
+
+# Generated HarnessBench runs and local environment audits. Keep the frozen
+# task manifest and human-readable research handoffs versioned.
+docs/research/harnessbench-*-openharness-user/
+docs/research/harnessbench-openharness-baseline-v1-original/
+docs/research/harnessbench-week1-audit.local.json
+docs/research/harnessbench-week1-tasks.local.csv
+
+# Project-local non-source directories
+docs/
+examples/
+results/
+
+# Additional local and tool caches
+.pyre/
+.hypothesis/
+.ipynb_checkpoints/
+.cache/
+.tox/
+.nox/
+node_modules/
+.npm/
+.yarn/cache/
+.pnpm-store/
+.eslintcache
+.parcel-cache/
+.next/cache/
+Thumbs.db

@@ -1,0 +1,49 @@
+# Project-local non-source directories
+docs/
+examples/
+results/
+
+# Editors and IDEs
+.vscode/
+.idea/
+
+# Python bytecode, environments, and tool caches
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+!.env.*.example
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.hypothesis/
+.ipynb_checkpoints/
+
+# Coverage and generic caches
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# JavaScript dependencies and caches
+node_modules/
+.npm/
+.yarn/cache/
+.pnpm-store/
+.eslintcache
+.parcel-cache/
+.next/cache/
+
+# OS and editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

@@ -1,0 +1,1739 @@
+{
+  "lark-mcp:calendar_v4_calendarEventAttendee_create": {
+    "name": "calendar_v4_calendarEventAttendee_create",
+    "original_name": "calendar_v4_calendarEventAttendee_create",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Event attendee (Including meeting room)-Create event invitees-Use this interface to add one or more invitees to a specified event with the current identity (app or user). Invitee types include users, groups, meeting rooms, and emails",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "attendees": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "chat",
+                      "resource",
+                      "third_party"
+                    ],
+                    "description": "Event invitee type Options:user(User),chat(Group),resource(Room),third_party(ThirdParty Email)"
+                  },
+                  "is_optional": {
+                    "type": "boolean",
+                    "description": "Whether the invitee is optional.**Optional values are**:- true- false**Note**: This field cannot be edited for room type invitees"
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "User ID. When selecting a user type invitee (the value of type is user), this parameter needs to be passed in. The user ID type passed in needs to be consistent with the value of user_id_type. For information about user IDs, see [User-related ID concepts]"
+                  },
+                  "chat_id": {
+                    "type": "string",
+                    "description": "Group ID. When selecting group type invitees (type value is chat), this parameter needs to be passed in. For details about group ID, please refer to [Group ID Description]"
+                  },
+                  "room_id": {
+                    "type": "string",
+                    "description": "Meeting room ID. When selecting meeting room type invitees (type value is resource), this parameter needs to be passed in.You can obtain the specified meeting room ID through the following interface:- [Query meeting room list]- [Search meeting room]"
+                  },
+                  "third_party_email": {
+                    "type": "string",
+                    "description": "Email address. When selecting an external mailbox type invitee (type value is third_party), this parameter needs to be passed in"
+                  },
+                  "operate_id": {
+                    "type": "string",
+                    "description": "Meeting room contact ID. The user ID type passed in needs to be consistent with the value of user_id_type. For information about user IDs, see [User-related ID concepts].**Note**: If the current schedule is created based on the application identity, when adding a meeting room type invitee, you need to specify the contact person of the meeting room through this parameter, and the contact will be displayed in the schedule meeting room information.**Default**: empty"
+                  },
+                  "resource_customization": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "index_key": {
+                          "type": "string",
+                          "description": "Unique ID of each configuration"
+                        },
+                        "input_content": {
+                          "type": "string",
+                          "description": "This parameter is required when the type field is left empty"
+                        },
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "option_key": {
+                                "type": "string",
+                                "description": "Unique ID of each option"
+                              },
+                              "others_content": {
+                                "type": "string",
+                                "description": "This parameter is required when the type field is set to other options"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "description": "Options of each configuration"
+                        }
+                      },
+                      "required": [
+                        "index_key"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Personalized configuration of meeting rooms.- When selecting meeting room type invitees, if the meeting room has a reservation form, you can configure the form information through this parameter.- When the currently added invitee does not involve the personalized configuration of the meeting room, there is no need to set this parameter"
+                  },
+                  "approval_reason": {
+                    "type": "string",
+                    "description": "The reason for requesting reservation approval for the meeting room. Parameter configuration description:- This field takes effect only when booking an approved meeting room using user identity (user_access_token).- For the scenario of applying for reservation and approval of a meeting room, if this value is not passed, the reservation will directly fail.- If you use the application identity (tenant_access_token) to reserve an approval meeting room, it will directly fail.**Default**: empty"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Add a new invitee list.**Notice**:- The maximum number of invitees (including meeting rooms) that can be set in a single request is 1,000.- The maximum number of meeting rooms that can be set up in a single request is 100"
+            },
+            "need_notification": {
+              "type": "boolean",
+              "description": "Whether to send bot notifications to invitees.**Optional values are**:- true (default): send- false: do not send"
+            },
+            "instance_start_time_admin": {
+              "type": "string",
+              "description": "The instance to be modified when accessing as an administrator.**Note**:- This parameter is only used to modify a event instance in a repeating event. This field does not need to be filled in for non-repeating events.- You can call the [Get repeating event instance] interface to obtain the event_id of a event instance in the repeating event. The value of this parameter is the timestamp suffix of event_id. For example, the queried event instance ID is `2cf525f0-1e67-4b04-ad4d-30b7f003903c_1713168000`, then the current `instance_start_time_admin` value is `1713168000`.**Default**: empty"
+            },
+            "is_enable_admin": {
+              "type": "boolean",
+              "description": "Whether to enable the meeting room administrator status (you need to set a member as the meeting room administrator in the management background first).**Optional values are**:- true: enable- false (default): disable**Note**: After it is turned on, this request will only process meeting room data, and the operations of other invitees will not take effect"
+            },
+            "add_operator_to_attendee": {
+              "type": "boolean",
+              "description": "Whether to add the meeting room contact (operate_id) to the schedule invitees.**Optional values are**:- true (default): enabled- false: disable"
+            }
+          },
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "calendar_id": {
+              "type": "string",
+              "description": "The calendar ID corresponding to the event. To learn more, see [Calendar ID Introduction]"
+            },
+            "event_id": {
+              "type": "string",
+              "description": "Event ID.The event ID is returned when creating a event. You can also call the following interface to obtain the ID of a certain calendar.- [Get event list]- [Search event]"
+            }
+          },
+          "required": [
+            "calendar_id",
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_calendarEvent_create": {
+    "name": "calendar_v4_calendarEvent_create",
+    "original_name": "calendar_v4_calendarEvent_create",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Event management-Create event-Call this interface to create a event on the specified calendar with the current identity (application or user)",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Event title"
+            },
+            "description": {
+              "type": "string",
+              "description": "Event description. Supports parsing HTML tags.**Note**: While HTML tags can be used to achieve some rich text formatting, the rich text formatting generated by the client is not implemented using HTML tags. If you update the description through the API after generating rich text formatting on the client side, it may result in the loss of the original rich text formatting applied by the client"
+            },
+            "need_notification": {
+              "type": "boolean",
+              "description": "Whether to send Bot notifications to event participants when updating the event.**Optional values are**:- true: send notification- false: Do not send notifications**Default value**: true"
+            },
+            "start_time": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "description": "Start time, only use this field for all-day events, [RFC 3339] format, for example, 2018-09-01.**Note**: This parameter cannot be specified at the same time as `timestamp`"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "description": "Second-level timestamp, used to set a specific start time. For example, 1602504000 means 2020/10/12 20:00:00 (UTC +8 time zone).**Note**: This parameter cannot be specified at the same time as `date`"
+                },
+                "timezone": {
+                  "type": "string",
+                  "description": "Time zone. Use IANA Time Zone Database standards such as Asia/Shanghai.- The all-day event time zone is fixed to UTC +0- The default time zone for non-all-day events is Asia/Shanghai"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Event start time"
+            },
+            "end_time": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "description": "End time, only use this field for all-day events, [RFC 3339] format, for example, 2018-09-01.**Note**: This parameter cannot be specified at the same time as `timestamp`"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "description": "Second-level timestamp, used to set a specific end time. For example, 1602504000 means 2020/10/12 20:00:00 (UTC +8 time zone).**Note**: This parameter cannot be specified at the same time as `date`"
+                },
+                "timezone": {
+                  "type": "string",
+                  "description": "Time zone. Use IANA Time Zone Database standards such as Asia/Shanghai.- The all-day event time zone is fixed to UTC +0- The default time zone for non-all-day events is Asia/Shanghai"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Event end time"
+            },
+            "vchat": {
+              "type": "object",
+              "properties": {
+                "vc_type": {
+                  "type": "string",
+                  "enum": [
+                    "vc",
+                    "third_party",
+                    "no_meeting",
+                    "lark_live",
+                    "unknown"
+                  ],
+                  "description": "Video conferencing type. If video conferencing is not required, `no_meeting` must be passed.**Default value**: empty, which means the Feishu video conference URL will be automatically generated when a event participant is added for the first time. Options:vc(Feishu video conferencing. When this type is selected, other fields in vchat are invalid.),third_party(ThirdParty Third-party linked video conferencing. When this type is selected, only the icon_type, description, and meeting_url fields in vchat will take effect.),no_meeting(NoMeeting No video conferencing. When this type is selected, other fields in vchat are invalid.),lark_live(LarkLive Feishu Live. Read-only enumeration value, used only on the client side, not supported through API calls.),unknown(Unknown type. Read-only enumeration value, only used for client compatibility, does not support API calls.)"
+                },
+                "icon_type": {
+                  "type": "string",
+                  "enum": [
+                    "vc",
+                    "live",
+                    "default"
+                  ],
+                  "description": "The icon type for third-party video conferencing.**Default**: default Options:vc(Feishu Video Conference icon.),live(Livestream video conference icon.),default(Default icon.)"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Third-party video conferencing copywriting.**Default value**: empty. If empty, the default copy will be displayed"
+                },
+                "meeting_url": {
+                  "type": "string",
+                  "description": "Video conference URL"
+                },
+                "meeting_settings": {
+                  "type": "object",
+                  "properties": {
+                    "owner_id": {
+                      "type": "string",
+                      "description": "Set the user ID of the conference owner, the ID type needs to be the same as user_id_type remains consistent.This parameter must meet all of the following conditions to take effect:- Apply identity (tenant_access_token) request and operate event on the application calendar.- The owner can only be set when the event is set to a VC meeting for the first time.- owner cannot be a non-user identity.- owner cannot be an external tenant user identity"
+                    },
+                    "join_meeting_permission": {
+                      "type": "string",
+                      "enum": [
+                        "anyone_can_join",
+                        "only_organization_employees",
+                        "only_event_attendees"
+                      ],
+                      "description": "Set the membership range.**Default**: anyone_can_join Options:anyone_can_join(AnyOne Any user can join the meeting),only_organization_employees(OnlySameOrganization Only users that from the same organization can join the meeting),only_event_attendees(OnlyEventAttendees Only event attendees can join the meeting)"
+                    },
+                    "assign_hosts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Specify the moderator by user ID, the ID type needs to be the same as user_id_type remains consistent.**Notice**:- Only event organizers can designate hosts.- Moderator cannot be a non-user.- The host cannot be an external tenant user identity.- When operating events on the app calendar, specifying a host is not allowed"
+                    },
+                    "auto_record": {
+                      "type": "boolean",
+                      "description": "Whether to enable automatic recording.**Optional values are**:- true: enable- false (default value): disable"
+                    },
+                    "open_lobby": {
+                      "type": "boolean",
+                      "description": "Whether to enable the waiting room.**Optional values are**:- true (default value): enabled- false: disable"
+                    },
+                    "allow_attendees_start": {
+                      "type": "boolean",
+                      "description": "Whether to allow event participants to initiate meetings.**Optional values are**:- true (default): allow- false: not allowed**Note**: When operating event on the application calendar, this field must be true, otherwise no one can initiate a meeting"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "Pre-conference settings for video conference. The following conditions need to be met (all must be met):- It takes effect when vc_type is vc.- Requires edit permission for the event"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Video conference information"
+            },
+            "visibility": {
+              "type": "string",
+              "enum": [
+                "default",
+                "public",
+                "private"
+              ],
+              "description": "Event visibility. The value is Default for new events by default. This is valid for all invitees only when an event is created. Any changes to the property are valid only for the current identity. Options:default(Default range, which depends on the calendar visibility. Only the availability status is visible to other people by default.),public(Public. Event details are displayed.),private(Private. Details are visible only to the current identity.)"
+            },
+            "attendee_ability": {
+              "type": "string",
+              "enum": [
+                "none",
+                "can_see_others",
+                "can_invite_others",
+                "can_modify_event"
+              ],
+              "description": "Event invitees' scopes.**Default**: none Options:none(Cannot edit events, cannot invite others, and cannot view event invitee list),can_see_others(CanSeeOthers Cannot edit events, cannot invite others, and can view event invitee list),can_invite_others(CanInviteOthers Cannot edit events, can invite others, and can view event invitee list),can_modify_event(CanModifyEvent Can edit events, can invite others, and can view event invitee list)"
+            },
+            "free_busy_status": {
+              "type": "string",
+              "enum": [
+                "busy",
+                "free"
+              ],
+              "description": "Event availability. The value is Busy for new events by default. This is valid for all invitees only when an event is created. Any changes to the property are valid only for the current identity. Options:busy(Busy),free(Free)"
+            },
+            "location": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Name of the location"
+                },
+                "address": {
+                  "type": "string",
+                  "description": "Address of the location"
+                },
+                "latitude": {
+                  "type": "number",
+                  "description": "Latitude coordinate of the location. Locations within China Mainland should comply with the GCJ-02 standard, and locations outside China Mainland should comply with the WGS84 standard"
+                },
+                "longitude": {
+                  "type": "number",
+                  "description": "Longitude coordinate of the location. Locations within China Mainland should comply with the GCJ-02 standard, and locations outside China Mainland should comply with the WGS84 standard"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Event location. If no value is passed, it will be empty by default"
+            },
+            "color": {
+              "type": "number",
+              "description": "Event color, the value is represented by an int32 color RGB value.**Notice**:- This parameter only takes effect for the current identity.- When displayed on the client, it will be mapped to the closest color on the color palette.- When the value is 0 or -1, the calendar color will be followed by default"
+            },
+            "reminders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "minutes": {
+                    "type": "number",
+                    "description": "Offset of the event reminder time. A positive value means the reminder is triggered X minutes before the event starts, and a negative value means the reminder is triggered X minutes after the event starts.This field is specified when an event is created or updated, and only valid for the current identity, not for other invitees in the event"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Event reminder list. If no value is passed, it defaults to empty"
+            },
+            "recurrence": {
+              "type": "string",
+              "description": "Recurrence rule for recurring events. For details, see [RFC 5545].**Default value**: empty, indicating that the current event is not a repeating event.**Note**:- COUNT and UNTIL cannot coexist;- The length of a scheduled recurring event in a room cannot exceed two years"
+            },
+            "schemas": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ui_name": {
+                    "type": "string",
+                    "description": "UI name. Valid values: - ForwardIcon: Event forwarding button - MeetingChatIcon: Meeting group chat button - MeetingMinutesIcon: Meeting minutes button - MeetingVideo: Video conference area - RSVP: Accept/decline/pending area - Attendee: Event invitees area - OrganizerOrCreator: Organizer/creator area"
+                  },
+                  "ui_status": {
+                    "type": "string",
+                    "enum": [
+                      "hide",
+                      "readonly",
+                      "editable",
+                      "unknown"
+                    ],
+                    "description": "Custom status of UI items. Only \"hide\" is supported. Options:hide(Hidden),readonly(Read-only),editable(Editable),unknown(Unknown UI item custom state. This parameter is only for read-time compatibility and does not support passing in as a request parameter value.)"
+                  },
+                  "app_link": {
+                    "type": "string",
+                    "description": "Link that is redirected to after the button is tapped/clicked.**Note**: The compatibility parameter is read-only, so passing in this request parameter is not supported yet"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Custom information of the event. This field controls the UI display on the event details page"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file_token": {
+                    "type": "string",
+                    "description": "Attachment token. Call the [Upload Material] interface to obtain the file_token of the attachment. When calling the upload material interface, please note:- `parent_type` needs to pass in a fixed value `calendar`.- `parent_node` needs to pass in a calendar ID that is consistent with the current interface.**Attachment verification rule**: The total size of the attachment does not exceed 25 MB"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Event attachment"
+            },
+            "event_check_in": {
+              "type": "object",
+              "properties": {
+                "enable_check_in": {
+                  "type": "boolean",
+                  "description": "Whether to enable event check-in"
+                },
+                "check_in_start_time": {
+                  "type": "object",
+                  "properties": {
+                    "time_type": {
+                      "type": "string",
+                      "enum": [
+                        "before_event_start",
+                        "after_event_start",
+                        "after_event_end"
+                      ],
+                      "description": "Check-in time type, duration calculates the final time according to it. Options:before_event_start(BeforeEventStart Before the start of event),after_event_start(AfterEventStart After the start of event),after_event_end(AfterEventEnd After the end of event)"
+                    },
+                    "duration": {
+                      "type": "number",
+                      "description": "The offset (in minutes) relative to the beginning or end of the event.- Currently, the value can only be one of the lists [0, 5, 15, 30, 60], where 0 indicates immediate start.- When time_type is before_event_start, duration cannot be set to 0"
+                    }
+                  },
+                  "required": [
+                    "time_type",
+                    "duration"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Event check-in start time.**Note**: The check-in start time cannot be greater than or equal to the check-in end time"
+                },
+                "check_in_end_time": {
+                  "type": "object",
+                  "properties": {
+                    "time_type": {
+                      "type": "string",
+                      "enum": [
+                        "before_event_start",
+                        "after_event_start",
+                        "after_event_end"
+                      ],
+                      "description": "Check-in time type, duration calculates the final time according to it. Options:before_event_start(BeforeEventStart Before the start of event),after_event_start(AfterEventStart After the start of event),after_event_end(AfterEventEnd After the end of event)"
+                    },
+                    "duration": {
+                      "type": "number",
+                      "description": "The offset (in minutes) relative to the beginning or end of the event.- Currently, the value can only be one of the lists [0, 5, 15, 30, 60], where 0 indicates immediate start.- When time_type is before_event_start, duration cannot be set to 0"
+                    }
+                  },
+                  "required": [
+                    "time_type",
+                    "duration"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Event check-in end time.**Note**: The check-in start time cannot be greater than or equal to the check-in end time"
+                },
+                "need_notify_attendees": {
+                  "type": "boolean",
+                  "description": "Whether a check-in notification is automatically sent to the participant at the start of the check-in"
+                }
+              },
+              "required": [
+                "enable_check_in"
+              ],
+              "additionalProperties": false,
+              "description": "Event check-in settings. If this parameter is empty, check-in Settings are not performed"
+            }
+          },
+          "required": [
+            "start_time",
+            "end_time"
+          ],
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "idempotency_key": {
+              "type": "string",
+              "description": "Create an idempotent key for the event. This key is unique under the application and calendar dimensions and is used to avoid repeated creation of resources. It is recommended to follow the format of the example value"
+            },
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "calendar_id": {
+              "type": "string",
+              "description": "Calendar ID.The calendar ID is returned when creating a shared calendar. You can also call the following interface to obtain the ID of a certain calendar.- [Query primary calendar information]- [Query calendar list]- [Search calendar]"
+            }
+          },
+          "required": [
+            "calendar_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "data",
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_calendarEvent_get": {
+    "name": "calendar_v4_calendarEvent_get",
+    "original_name": "calendar_v4_calendarEvent_get",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Event management-Get Event-Call this interface with the current identity (app or user) to obtain the event information within a specified calendar, including the title of the event, time period, video conference information, public scope, and invitee rights, etc",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "need_meeting_settings": {
+              "type": "boolean",
+              "description": "Do you need to return to the pre-meeting settings of Feishu Video Conferencing (VC)? The following conditions must be met to obtain the returned results:- The meeting type (vc_type) of the event needs to be vc.- Requires editing permissions for event.**Optional values are**:- true- false (default)"
+            },
+            "need_attendee": {
+              "type": "boolean",
+              "description": "Do you need to return invitee information?**Optional values are**:- true- false (default)"
+            },
+            "max_attendee_num": {
+              "type": "number",
+              "description": "The maximum number of invitees returned. Call [Get event invitee list] to get complete invitee information of the event"
+            },
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "calendar_id": {
+              "type": "string",
+              "description": "The calendar ID where the event is located. For information about calendar ID, please refer to [Calendar ID Description]"
+            },
+            "event_id": {
+              "type": "string",
+              "description": "Event ID.The event ID is returned when creating a event. You can also call the following interface to obtain the ID of a certain calendar.- [Get event list]- [Search event]"
+            }
+          },
+          "required": [
+            "calendar_id",
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_calendarEvent_list": {
+    "name": "calendar_v4_calendarEvent_list",
+    "original_name": "calendar_v4_calendarEvent_list",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Event management-Get Event List-Call this interface with the current identity (app or user) to obtain the event list under a specified calendar",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "page_size": {
+              "type": "number",
+              "description": "The maximum number of entries to be returned for one request. The actual number of returned entries may be less than this value, or it may be empty, and you can determine if there are more entries based on the has_more field in the response body"
+            },
+            "anchor_time": {
+              "type": "string",
+              "description": "A time anchor represented by a Unix timestamp (in seconds). It is used to set a specific point in time for pulling events, thereby avoiding the need to pull all events. You can use page_token or sync_token for pagination or incremental retrieval of all events after the specified anchor_time.**Instructions**:- For single events, you will receive event information where **the end time of the event is >= anchor_time**.- For recurring events, after setting the anchor_time, all recurring events will be retrieved including those with past occurrences before the anchor_time.- For exceptional events, you will receive event information where **the original_time is >= anchor_time** as well as **the end time of the event is >= anchor_time**. The original_time is extracted from the exceptional event ID, which is structured as `{uid}_{original_time}`.**Notice**: It can not be used together with start_time and end_time.**Default**: empty"
+            },
+            "page_token": {
+              "type": "string",
+              "description": "Page identifier. It is not filled in the first request, indicating traversal from the beginning when there will be more groups, the new page_token will be returned at the same time, and the next traversal can use the page_token to get more groups"
+            },
+            "sync_token": {
+              "type": "string",
+              "description": "Incremental synchronization mark, not filled in for the first request. When the paging query ends (page_token return value is empty), the interface will return the sync_token field, and the sync_token can be used to incrementally obtain calendar change data in the next call.**Default**: empty"
+            },
+            "start_time": {
+              "type": "string",
+              "description": "start_time is the start point of a time range, represented by a Unix timestamp (in seconds). It is used in conjunction with end_time to pull events within a specified time range.**Notice**:- This method can only return data once and cannot be paginated. The size of the data returned in a single request is limited by page_size, and any data exceeding this limit will be truncated.- When using start_time and end_time, they cannot be used together with page_token or sync_token.- When using start_time and end_time, it cannot be used with anchor_time.**Default**: empty"
+            },
+            "end_time": {
+              "type": "string",
+              "description": "end_time is the end point of a time range, represented by a Unix timestamp (in seconds). It is used in conjunction with start_time to pull events within a specified time range.**Notice**:- This method can only return data once and cannot be paginated. The size of the data returned in a single request is limited by page_size, and any data exceeding this limit will be truncated.- When using start_time and end_time, they cannot be used together with page_token or sync_token.- When using start_time and end_time, it cannot be used with anchor_time.**Default**: empty"
+            },
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "calendar_id": {
+              "type": "string",
+              "description": "Calendar ID. For details, see [Calendar-related IDs]"
+            }
+          },
+          "required": [
+            "calendar_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_calendarEvent_patch": {
+    "name": "calendar_v4_calendarEvent_patch",
+    "original_name": "calendar_v4_calendarEvent_patch",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Event management-Update Event-Call this interface with the current identity (app or user) to update a event on a specific calendar, including information such as the event title, description, start and end time, video conference, and event location",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Event title.**Default value**: empty, indicating that the field will not be updated"
+            },
+            "description": {
+              "type": "string",
+              "description": "Event description.**Note**: The current API method does not support editing rich text descriptions. If the event description is edited as rich text content via the client, updating the description using the API will cause the rich text formatting to be lost.**Default value**: empty, indicating that the field will not be updated"
+            },
+            "need_notification": {
+              "type": "boolean",
+              "description": "Whether to send Bot notifications to event invitees when updating the event.**Default value**: empty, indicating that the field will not be updated**Optional values are**:- true: send notification- false: Do not send notifications"
+            },
+            "start_time": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "description": "Start time, only use this field for all-day events, [RFC 3339] format, for example, 2018-09-01.**Note**: This parameter cannot be specified at the same time as `timestamp`"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "description": "Second-level timestamp, used to set a specific start time. For example, 1602504000 means 2020/10/12 20:00:00 (UTC +8 time zone).**Note**: This parameter cannot be specified at the same time as `date`"
+                },
+                "timezone": {
+                  "type": "string",
+                  "description": "Time zone. Use IANA Time Zone Database standards such as Asia/Shanghai.- The all-day event time zone is fixed to UTC +0- The default time zone for non-all-day events is Asia/Shanghai"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Event start time. It will take effect only when it has a value at the same time as end_time"
+            },
+            "end_time": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "description": "End time, only use this field for all-day events, [RFC 3339] format, for example, 2018-09-01.**Note**: This parameter cannot be specified at the same time as `timestamp`"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "description": "Second-level timestamp, used to set a specific end time. For example, 1602504000 means 2020/10/12 20:00:00 (UTC +8 time zone).**Note**: This parameter cannot be specified at the same time as `date`"
+                },
+                "timezone": {
+                  "type": "string",
+                  "description": "Time zone. Use IANA Time Zone Database standards such as Asia/Shanghai.- The all-day event time zone is fixed to UTC +0- The default time zone for non-all-day events is Asia/Shanghai"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Event end time. It will take effect only when it has a value at the same time as start_time"
+            },
+            "vchat": {
+              "type": "object",
+              "properties": {
+                "vc_type": {
+                  "type": "string",
+                  "enum": [
+                    "vc",
+                    "third_party",
+                    "no_meeting",
+                    "lark_live",
+                    "unknown"
+                  ],
+                  "description": "Video conferencing type. If video conferencing is not required, `no_meeting` must be passed. Options:vc(Feishu video conferencing. When this type is selected, other fields in vchat are invalid.),third_party(ThirdParty Third-party linked video conferencing. When this type is selected, only the icon_type, description, and meeting_url fields in vchat will take effect.),no_meeting(NoMeeting No video conferencing. When this type is selected, other fields in vchat are invalid.),lark_live(LarkLive Feishu Live. This value is for client use, does not support calls via API, and is read-only.),unknown(Unknown type. This value is used for client compatibility, does not support API calls, and is read-only.)"
+                },
+                "icon_type": {
+                  "type": "string",
+                  "enum": [
+                    "vc",
+                    "live",
+                    "default"
+                  ],
+                  "description": "The icon type for third-party video conferencing.**Default value**: empty, indicating that the field will not be updated Options:vc(Feishu Video Conference icon),live(Livestream video conference icon),default(Default icon)"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Third-party video conferencing copywriting.**Default value**: empty, indicating that the field will not be updated"
+                },
+                "meeting_url": {
+                  "type": "string",
+                  "description": "Video conferencing URL.**Default value**: empty, indicating that the field will not be updated"
+                },
+                "meeting_settings": {
+                  "type": "object",
+                  "properties": {
+                    "owner_id": {
+                      "type": "string",
+                      "description": "Set the user ID of the conference owner. The ID type must be consistent with user_id_type.This parameter must meet all of the following conditions to take effect:- Apply identity (tenant_access_token) request and operate event on the application calendar.- The owner can only be set when the event is set to a VC meeting for the first time.- owner cannot be a non-user identity.- owner cannot be an external tenant user identity"
+                    },
+                    "join_meeting_permission": {
+                      "type": "string",
+                      "enum": [
+                        "anyone_can_join",
+                        "only_organization_employees",
+                        "only_event_attendees"
+                      ],
+                      "description": "Determine who can join the meeting. Options:anyone_can_join(AnyOne Any user can join the meeting),only_organization_employees(OnlySameOrganization Only users that from the same organization can join the meeting),only_event_attendees(OnlyEventAttendees Only event attendees can join the meeting)"
+                    },
+                    "assign_hosts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Specify the moderator by user ID, the ID type needs to be the same as user_id_type remains consistent.**Note**:- Only the event organizer can designate a host.- Moderator cannot be a non-user.- The host cannot be an external tenant user identity.- When operating events on the app calendar, specifying a host is not allowed"
+                    },
+                    "auto_record": {
+                      "type": "boolean",
+                      "description": "Whether to enable automatic recording.**Optional values are**:- true: enable- false: disable**Default value**: empty, indicating that the field will not be updated"
+                    },
+                    "open_lobby": {
+                      "type": "boolean",
+                      "description": "Whether to enable the waiting room.**Optional values are**:- true: enable- false: disable**Default value**: empty, indicating that the field will not be updated"
+                    },
+                    "allow_attendees_start": {
+                      "type": "boolean",
+                      "description": "Whether to allow event invitees to initiate meetings.**Note**: When operating event on the application calendar, this field must be true, otherwise no one can initiate a meeting.**Optional values are**:- true: allow- false: not allowed**Default value**: empty, indicating that the field will not be updated"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "The pre-meeting settings of Feishu Video Conference (VC) must meet all the following conditions:- Valid when `vc_type` is `vc`.- Requires editing permissions for event.Not passing a value means that the field will not be updated"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Video conferencing information. Not passing a value means that the field will not be updated"
+            },
+            "visibility": {
+              "type": "string",
+              "enum": [
+                "default",
+                "public",
+                "private"
+              ],
+              "description": "Event visibility.**Note**: If the parameter value is modified when updating the event, it will only take effect for the current identity.**Default value**: empty, indicating that the field will not be updated Options:default(Default range, which depends on the calendar visibility. Only the availability status is visible to other people by default.),public(Public. Event details are displayed.),private(Private. Details are visible only to the current identity.)"
+            },
+            "attendee_ability": {
+              "type": "string",
+              "enum": [
+                "none",
+                "can_see_others",
+                "can_invite_others",
+                "can_modify_event"
+              ],
+              "description": "Invitee permissions.**Default value**: empty, indicating that the field will not be updated Options:none(Cannot edit events, cannot invite others, and cannot view event invitee list),can_see_others(CanSeeOthers Cannot edit events, cannot invite others, and can view event invitee list),can_invite_others(CanInviteOthers Cannot edit events, can invite others, and can view event invitee list),can_modify_event(CanModifyEvent Can edit events, can invite others, and can view event invitee list)"
+            },
+            "free_busy_status": {
+              "type": "string",
+              "enum": [
+                "busy",
+                "free"
+              ],
+              "description": "Busy status occupied by the event. The default for new events is `busy`.**Note**: If the parameter value is modified when updating the event, it will only take effect for the current identity.**Default value**: empty, indicating that the field will not be updated Options:busy(Busy),free(Free)"
+            },
+            "location": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Name of the location"
+                },
+                "address": {
+                  "type": "string",
+                  "description": "Address of the location"
+                },
+                "latitude": {
+                  "type": "number",
+                  "description": "Latitude coordinate of the location. Locations within China Mainland should comply with the GCJ-02 standard, and locations outside China Mainland should comply with the WGS84 standard"
+                },
+                "longitude": {
+                  "type": "number",
+                  "description": "Longitude coordinate of the location. Locations within China Mainland should comply with the GCJ-02 standard, and locations outside China Mainland should comply with the WGS84 standard"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Event location. Not passing a value means that the field will not be updated"
+            },
+            "color": {
+              "type": "number",
+              "description": "Event color, the value is represented by an int32 color RGB value.**Notice**:- This parameter only takes effect for the current identity.- When displayed on the client, it will be mapped to the closest color on the color palette.- When the value is 0 or -1, the calendar color will be followed by default.**Default value**: empty, indicating that the field will not be updated"
+            },
+            "reminders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "minutes": {
+                    "type": "number",
+                    "description": "Offset of the event reminder time. A positive value means the reminder is triggered X minutes before the event starts, and a negative value means the reminder is triggered X minutes after the event starts.This field is specified when an event is created or updated, and only valid for the current identity, not for other invitees in the event"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Event reminder list. Not passing a value means that the field will not be updated"
+            },
+            "recurrence": {
+              "type": "string",
+              "description": "Recurrence rule for recurring events. For details, see [RFC 5545].**Note**:- COUNT and UNTIL cannot coexist- The length of a scheduled recurring event in a room cannot exceed two years.**Default value**: empty, indicating that the field will not be updated"
+            },
+            "schemas": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ui_name": {
+                    "type": "string",
+                    "description": "UI name. **Valid values**: - ForwardIcon: Event forwarding button - MeetingChatIcon: Meeting group chat button - MeetingMinutesIcon: Meeting minutes button - MeetingVideo: Video conference area - RSVP: Accept/decline/pending area - Attendee: Event invitees area - OrganizerOrCreator: Organizer/creator area"
+                  },
+                  "ui_status": {
+                    "type": "string",
+                    "enum": [
+                      "hide",
+                      "readonly",
+                      "editable",
+                      "unknown"
+                    ],
+                    "description": "Custom status of UI items. Only \"hide\" is supported. Options:hide(Hidden),readonly(Read-only),editable(Editable),unknown(Unknown. This is only used for compatibility in reading.)"
+                  },
+                  "app_link": {
+                    "type": "string",
+                    "description": "The link that jumps after clicking the button.**Note**: The compatibility parameter is read-only, so passing in this request parameter is not supported yet"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Event custom information controls the UI display of the event details page. Not passing a value means that the field will not be updated"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file_token": {
+                    "type": "string",
+                    "description": "Attachment token. Call the [Upload Material] interface to obtain the file_token of the attachment. When calling the upload material interface, please note:- `parent_type` needs to pass in a fixed value `calender`.- `parent_node` needs to pass in a calendar ID that is consistent with the current interface.**Attachment verification rule**: The total size of the attachment does not exceed 25 MB"
+                  },
+                  "is_deleted": {
+                    "type": "boolean",
+                    "description": "Whether to delete the attachment.**Optional values**:- true- false**Default value**: false"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Event attachment"
+            },
+            "event_check_in": {
+              "type": "object",
+              "properties": {
+                "enable_check_in": {
+                  "type": "boolean",
+                  "description": "Whether to enable event check-in"
+                },
+                "check_in_start_time": {
+                  "type": "object",
+                  "properties": {
+                    "time_type": {
+                      "type": "string",
+                      "enum": [
+                        "before_event_start",
+                        "after_event_start",
+                        "after_event_end"
+                      ],
+                      "description": "Check-in time type, duration calculates the final time according to it. Options:before_event_start(BeforeEventStart Before the start of event),after_event_start(AfterEventStart After the start of event),after_event_end(AfterEventEnd After the end of event)"
+                    },
+                    "duration": {
+                      "type": "number",
+                      "description": "The offset (in minutes) relative to the beginning or end of the event.- Currently, the value can only be one of the lists [0, 5, 15, 30, 60], where 0 indicates immediate start.- When time_type is before_event_start, duration cannot be set to 0"
+                    }
+                  },
+                  "required": [
+                    "time_type",
+                    "duration"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Event check-in start time.**Note**: The check-in start time cannot be greater than or equal to the check-in end time"
+                },
+                "check_in_end_time": {
+                  "type": "object",
+                  "properties": {
+                    "time_type": {
+                      "type": "string",
+                      "enum": [
+                        "before_event_start",
+                        "after_event_start",
+                        "after_event_end"
+                      ],
+                      "description": "Check-in time type, duration calculates the final time according to it. Options:before_event_start(BeforeEventStart Before the start of event),after_event_start(AfterEventStart After the start of event),after_event_end(AfterEventEnd After the end of event)"
+                    },
+                    "duration": {
+                      "type": "number",
+                      "description": "The offset (in minutes) relative to the beginning or end of the event.- Currently, the value can only be one of the lists [0, 5, 15, 30, 60], where 0 indicates immediate start.- When time_type is before_event_start, duration cannot be set to 0"
+                    }
+                  },
+                  "required": [
+                    "time_type",
+                    "duration"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Event check-in end time.**Note**: The check-in start time cannot be greater than or equal to the check-in end time"
+                },
+                "need_notify_attendees": {
+                  "type": "boolean",
+                  "description": "Whether a check-in notification is automatically sent to the participant at the start of the check-in"
+                }
+              },
+              "required": [
+                "enable_check_in"
+              ],
+              "additionalProperties": false,
+              "description": "Event check-in settings. If this parameter is empty, check-in Settings are not performed"
+            }
+          },
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "calendar_id": {
+              "type": "string",
+              "description": "Calendar ID. For details, see [Calendar-related IDs]"
+            },
+            "event_id": {
+              "type": "string",
+              "description": "Event ID.The event ID is returned when creating a event. You can also call the following interface to obtain the ID of a certain calendar.- [Get event list]- [Search event]"
+            }
+          },
+          "required": [
+            "calendar_id",
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_calendar_list": {
+    "name": "calendar_v4_calendar_list",
+    "original_name": "calendar_v4_calendar_list",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Calendar management-Query the calendar list-Call this interface to page through and query the calendar list of the current identity (application or user)",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "page_size": {
+              "type": "number",
+              "description": "The maximum number of calendars to be returned for one request. The actual number of calendars returned may be less than this value, or it may be empty, and you can determine if there are more calendars based on the has_more field in the response body"
+            },
+            "page_token": {
+              "type": "string",
+              "description": "Page identifier. It is not filled in the first request, indicating traversal from the beginning when there will be more groups, the new page_token will be returned at the same time, and the next traversal can use the page_token to get more groups"
+            },
+            "sync_token": {
+              "type": "string",
+              "description": "Incremental synchronization mark, no need to fill in for the first request. When the page query ends (the returned value of page_token is empty), the interface will return the sync_token field. The next call can use this sync_token to incrementally obtain calendar change data"
+            }
+          },
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_calendar_primary": {
+    "name": "calendar_v4_calendar_primary",
+    "original_name": "calendar_v4_calendar_primary",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Calendar management-Query primary calendar information-Call this interface to get the main calendar information of the current identity (application or user)",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:calendar_v4_freebusy_list": {
+    "name": "calendar_v4_freebusy_list",
+    "original_name": "calendar_v4_freebusy_list",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Calendar-Calendar management-Query availability of the primary calendar-Call this interface to query the busy/free information of the specified user's primary calendar, or to query the busy/free information of the specified meeting room",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "time_min": {
+              "type": "string",
+              "description": "The start time of the query period, in [RFC 3339] date_time format.**Note**: The time interval between time_min and time_max cannot be more than 90 days"
+            },
+            "time_max": {
+              "type": "string",
+              "description": "The end time of the query period, in [RFC 3339] date_time format.**Note**: The time interval between time_min and time_max cannot be more than 90 days"
+            },
+            "user_id": {
+              "type": "string",
+              "description": "User ID, you need to input an id that matches the query parameter user_id_type. For example, when user_id_type=open_id, you need to input the user's open_id. Refer to [User-related ID concepts] for understanding user IDs.**Note**: Either user_id or room_id needs to be entered. If both are entered at the same time, only user_id will take effect"
+            },
+            "room_id": {
+              "type": "string",
+              "description": "Meeting room room_id. You can call the [Query Meeting Room List] interface or the [Search for Meeting Room] interface to get the corresponding meeting room's room_id.**Note**: Either user_id or room_id needs to be entered. If both are entered at the same time, only user_id will take effect"
+            },
+            "include_external_calendar": {
+              "type": "boolean",
+              "description": "Whether to include the schedule in the bound third-party calendar.**Values**：- true (default value): Include- false: Do not include"
+            },
+            "only_busy": {
+              "type": "boolean",
+              "description": "Whether to only query busy schedule information. **Value**:- true (default): Yes, the query results do not include free schedules.- false: No, the query results include free schedules"
+            }
+          },
+          "required": [
+            "time_min",
+            "time_max"
+          ],
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:contact_v3_user_batchGetId": {
+    "name": "contact_v3_user_batchGetId",
+    "original_name": "contact_v3_user_batchGetId",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Contacts-User-Obtain user ID via email or mobile number-Call this interface to obtain the ID (including user_id, open_id, union_id) and status information of one or more users through their mobile phone number or email address",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "emails": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Up to 50 user emails can be input to be queried.**Notice**:- Business email is not supported.- The two parameters emails and mobiles are independent of each other, that is, each user's email will return the corresponding user information, and each mobile phone number will also return the corresponding user information.- The number of user IDs returned by this interface is the sum of the number of emails and the number of mobiles.**Default**: empty"
+            },
+            "mobiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "You can input up to 50 user mobile phone numbers to be queried.**Notice**:- Mobile phone numbers outside of mainland China need to add a country or region code starting with \"+\".- The two parameters emails and mobiles are independent of each other, that is, each user's email will return the corresponding user information, and each mobile phone number will also return the corresponding user information.- The number of user IDs returned by this interface is the sum of the number of emails and the number of mobiles.**Default**: empty"
+            },
+            "include_resigned": {
+              "type": "boolean",
+              "description": "Check whether the query results contain user information of resigned employees.**Optional values are**:- true- false"
+            }
+          },
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:contact_v3_user_get": {
+    "name": "contact_v3_user_get",
+    "original_name": "contact_v3_user_get",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Contacts-User-Obtain single user's information-Call this interface to obtain the information of a user in the address book, including user ID, name, email, mobile phone number, status, department and other information",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            },
+            "department_id_type": {
+              "type": "string",
+              "enum": [
+                "department_id",
+                "open_department_id"
+              ],
+              "description": "Specifies the type of department ID in query results. For a detailed introduction to department ID, please refer to [Department ID Description]. Options:department_id(Supports user-defined configured department IDs. The deleted department_id can be reused when customizing the configuration, so department_id is unique within the scope of the department that has not been deleted.),open_department_id(Department ID automatically generated by the system. The ID prefix is fixed to od- and is globally unique within the tenant.)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "description": "User ID. The ID type is consistent with the query parameter `user_id_type`"
+            }
+          },
+          "required": [
+            "user_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:im_v1_chat_create": {
+    "name": "im_v1_chat_create",
+    "original_name": "im_v1_chat_create",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Group Chat-Group management-Create a group-Create a group chat. When creating a group chat, you can set the group avatar, group name, group owner, group type and other configurations. You can also invite group members and group bots to join the group",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "avatar": {
+              "type": "string",
+              "description": "Image Key of group avatar- Can be obtained by [upload image] (Note: ==image_type== of uploaded image needs to be specified as ==avatar==)- If no value is passed, the system default avatar will be used"
+            },
+            "name": {
+              "type": "string",
+              "description": "Group name**Notes**:- It is recommended that the group name does not exceed 60 characters.- The length of the public group name must be at least 2 characters.- If the private group does not fill in the group name, the group name defaults to \"`(no titile)`\""
+            },
+            "description": {
+              "type": "string",
+              "description": "Group description. Recommended not to exceed 100 characters.**Default value**: empty"
+            },
+            "i18n_names": {
+              "type": "object",
+              "properties": {
+                "zh_cn": {
+                  "type": "string",
+                  "description": "Chinese name"
+                },
+                "en_us": {
+                  "type": "string",
+                  "description": "English name"
+                },
+                "ja_jp": {
+                  "type": "string",
+                  "description": "Japanese name"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Internationalized group name**Notice**:- It is recommended not to exceed 60 characters- If you do not set an internationalized name, the name corresponding to the `name` parameter will be displayed by default"
+            },
+            "owner_id": {
+              "type": "string",
+              "description": "The group owner specified when a group was created. If the field is left empty, the bot that created the group will be specified as the owner. The group owner ID value corresponds to ==user_id_type== in the query parameter. Open ID is recommended here. For details, refer to [How to get Open ID?]**Note**: When a robot with external sharing capability is enabled, it cannot be the group owner when creating an external group. A user must be designated as the group owner. In addition, when adding external users to a group, the external users must be friends with the group owner on Feishu"
+            },
+            "user_id_list": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Group members invited when creating the group. The ID type is specified in the query parameter ==user_id_type==. Open ID is recommended here. For details, refer to [How to get Open ID?]**Note**: - Up to 50 users can be invited at the same time.- To facilitate viewing the effect on the client, it is recommended to add the developer's own ID when debugging the API.- If you need to invite external users to create an external group, the external users must be friends with the group owner on Feishu.- To obtain the open_id of an external user, refer to [Obtaining the open_id of an external user]"
+            },
+            "bot_id_list": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Group robots invited when creating a group. For more information, please refer to [How to Obtain App ID ?] to get the App ID of the application.**Notes**:- The Bot operating this API will automatically join the group, no need to fill in again.- Please use `app_id` to invite the bot into the group.- At most 5 bots can be invited at the same time, and the number of bots in the group after invitation cannot exceed 15"
+            },
+            "group_message_type": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "thread"
+              ],
+              "description": "group message type Options:chat(chat),thread(thread)"
+            },
+            "chat_mode": {
+              "type": "string",
+              "description": "Group mode**Optional values are**:- `group`: A group"
+            },
+            "chat_type": {
+              "type": "string",
+              "description": "Group type**Optional values are**:- `private`: A private group- `public`: A public group"
+            },
+            "join_message_visibility": {
+              "type": "string",
+              "description": "Visibility of the messages on joining a group**Optional values are**:- `only_owner`: Visible to only the group owner and administrators- `all_members`: Visible to all members- `not_anyone`: Invisible to anyone"
+            },
+            "leave_message_visibility": {
+              "type": "string",
+              "description": "Visibility of the messages on leaving a group**Optional values are**:- `only_owner`: Visible to only the group owner and administrators- `all_members`: Visible to all members- `not_anyone`: Invisible to anyone"
+            },
+            "membership_approval": {
+              "type": "string",
+              "description": "Group joining approval**Optional values are**:- `no_approval_required`: Approval is not required.- `approval_required`: Approval is required"
+            },
+            "restricted_mode_setting": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "description": "Whether the restricted mode is enabled**Optional values**:- true: Enabled. When set to true, `screenshot_has_permission_setting`, `download_has_permission_setting`, `message_has_permission_setting` cannot all be `all_members`.- false: Disabled. When set to false, `screenshot_has_permission_setting`, `download_has_permission_setting`, `message_has_permission_setting` cannot have `not_anyone`.**Default value**: false"
+                },
+                "screenshot_has_permission_setting": {
+                  "type": "string",
+                  "enum": [
+                    "all_members",
+                    "not_anyone"
+                  ],
+                  "description": "Whether to allow screenshots**Default value**: all_members Options:all_members(AllMembers All members allow screenshots),not_anyone(NotAnyone Not anyone allow screenshots)"
+                },
+                "download_has_permission_setting": {
+                  "type": "string",
+                  "enum": [
+                    "all_members",
+                    "not_anyone"
+                  ],
+                  "description": "Whether to allow downloading pictures, videos and files in messages**Default value**: all_members Options:all_members(AllMembers All members allow downloading pictures, videos and files in messages),not_anyone(NotAnyone Not anyone allow downloading pictures, videos and files in messages)"
+                },
+                "message_has_permission_setting": {
+                  "type": "string",
+                  "enum": [
+                    "all_members",
+                    "not_anyone"
+                  ],
+                  "description": "Whether to allow copying and forwarding of messages**Default value**: all_members Options:all_members(AllMembers All members allow copying and forwarding of messages),not_anyone(NotAnyone Not anyone allow copying and forwarding of messages)"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Restricted mode setting**Notice**: Confidentiality mode is applicable to Enterprise Ultimate Edition. For applicable versions and function introduction, please refer to [Session Confidentiality Mode]"
+            },
+            "urgent_setting": {
+              "type": "string",
+              "enum": [
+                "only_owner",
+                "all_members"
+              ],
+              "description": "Who can buzz others**Default value**: all_members Options:only_owner(Only group owner and admin),all_members(Everyone in this group)"
+            },
+            "video_conference_setting": {
+              "type": "string",
+              "enum": [
+                "only_owner",
+                "all_members"
+              ],
+              "description": "Who can start video calls**Default value**: all_members Options:only_owner(Only group owner and admin),all_members(Everyone in this group)"
+            },
+            "edit_permission": {
+              "type": "string",
+              "enum": [
+                "only_owner",
+                "all_members"
+              ],
+              "description": "Who can edit group info**Default value**: all_members Options:only_owner(Only group owner and admin),all_members(Everyone in this group)"
+            },
+            "hide_member_count_setting": {
+              "type": "string",
+              "enum": [
+                "all_members",
+                "only_owner"
+              ],
+              "description": "Hide member count setting**Default value**: all_members Options:all_members(visible to all group members),only_owner(visible only to group owners and group administrators)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            },
+            "set_bot_manager": {
+              "type": "boolean",
+              "description": "If a user is specified as the group owner in the ==owner_id== field of the request body, you can choose whether to set the bot that created the group as the administrator at the same time. This flag is used to mark whether to set the bot that created the group as the administrator"
+            },
+            "uuid": {
+              "type": "string",
+              "description": "A unique string sequence generated by the developer, used to request deduplication requests with the same uuid + owner_id can only successfully create 1 group within 10 hours. If no value is passed, no deduplication of requests will be performed, and a group chat will be created for each successful request"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:im_v1_chat_get": {
+    "name": "im_v1_chat_get",
+    "original_name": "im_v1_chat_get",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Group Chat-Group management-Obtain group information-Obtains basic information such as group name, description, profile photo, and owner ID",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "chat_id": {
+              "type": "string",
+              "description": "Group ID. How to obtain it:- [Create a group], and get the chat_id of the group from the returned result.- Call the [Get the list of groups where the user or bot is] interface to query the chat_id of the group where the user or bot is.- Call the [Search the list of groups visible to the user or bot] to search for the chat_id of the group where the user or bot is and the group that is open to the user or bot"
+            }
+          },
+          "required": [
+            "chat_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:im_v1_chat_list": {
+    "name": "im_v1_chat_list",
+    "original_name": "im_v1_chat_list",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Group Chat-Group management-Obtain groups where the user or bot is a member-Get the list of groups where the user or bot represented by [access_token] is a member",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID type"
+            },
+            "sort_type": {
+              "type": "string",
+              "enum": [
+                "ByCreateTimeAsc",
+                "ByActiveTimeDesc"
+              ],
+              "description": "Sort type of chat list Options:ByCreateTimeAsc(Sort by group creation time in ascending order),ByActiveTimeDesc(Sort by group active time in descending order. Because group active time changes frequently, using the `ByActiveTimeDesc` sorting method may cause groups to be missed. For example, if the paging size is set to 10, after the first request is made to obtain the first page of data, a group member in the group originally ranked 11th sends a message, then the group will be ranked 1st. At this time, when a request is made to obtain the second page of data, the group will not be obtained and needs to be obtained from the first page again.)"
+            },
+            "page_token": {
+              "type": "string",
+              "description": "Page identifier. It is not filled in the first request, indicating traversal from the beginning when there will be more groups, the new page_token will be returned at the same time, and the next traversal can use the page_token to get more groups"
+            },
+            "page_size": {
+              "type": "number",
+              "description": "The paging size is used to limit the number of data items returned in one request"
+            }
+          },
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:im_v1_chatMembers_get": {
+    "name": "im_v1_chatMembers_get",
+    "original_name": "im_v1_chatMembers_get",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Group Chat-Group member-Obtain group member list-Get the list of members of the group the user/bot is in",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "member_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id"
+              ],
+              "description": "User ID categories Options:open_id(Identifies a user to an app. The same user has different Open IDs in different apps. [How to get Open ID]),union_id(Identifies a user to a tenant that acts as a developer. A user has the same Union ID in apps developed by the same developer, and has different Union IDs in apps developed by different developers. A developer can use Union ID to link the same user's identities in multiple apps. [How to get Union ID]),user_id(Identifies a user to a tenant. The same user has different User IDs in different tenants. In one single tenant, a user has the same User ID in all apps （including store apps）. User ID is usually used to communicate user data between different apps. [How to get User ID])"
+            },
+            "page_size": {
+              "type": "number",
+              "description": "The paging size is used to limit the number of data entries returned in one request.- Since the returned group member list will filter out robot members, the number of group members returned may be less than the specified page_size.- If there are group members who join the group at the same time, they will be returned at once, which may cause the number of group members returned to be greater than the specified page_size"
+            },
+            "page_token": {
+              "type": "string",
+              "description": "Page identifier. It is not filled in the first request, indicating traversal from the beginning when there will be more groups, the new page_token will be returned at the same time, and the next traversal can use the page_token to get more groups"
+            }
+          },
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "chat_id": {
+              "type": "string",
+              "description": "Group ID. How to obtain it:- [Create a group], and get the chat_id of the group from the returned result.- Call the [Get the list of groups where the user or robot is] interface to query the chat_id of the group where the user or robot is.- Call the [Search the list of groups visible to the user or robot] to search for the chat_id of the group where the user or robot is and the group that is open to the user or robot"
+            }
+          },
+          "required": [
+            "chat_id"
+          ],
+          "additionalProperties": false
+        },
+        "useUAT": {
+          "type": "boolean",
+          "description": "Use user access token, otherwise use tenant access token"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:im_v1_message_create": {
+    "name": "im_v1_message_create",
+    "original_name": "im_v1_message_create",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Messaging-Message management-Send message-Call this interface to send a message to a specified user or group chat. Supported message types include text, rich text, cards, group business cards, personal business cards, pictures, videos, audio, files, and emoticons",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "receive_id": {
+              "type": "string",
+              "description": "The ID of the message recipient. The ID type is consistent with the value of the query parameter `receive_id_type`.**Notice**:- When sending a message to a user, the user needs to be in the bot's [availability scope]. For example, if you need to send a message to all employees of the company, you need to set the application's availability scope to all employees.- When sending a message to a group, the bot needs to be in the group and have the right to speak in the group.- If the message recipient is a user, it is recommended to use the user's `open_id`"
+            },
+            "msg_type": {
+              "type": "string",
+              "description": "Message type.**Optional values**:- text- post- image- file- audio- media- sticker- interactive- share_chat- share_user- system: This type only supports pushing system messages in bot single chats and not in group chats. For example, as shown in the image below to highlight a new conversation. For detailed description of different message types, see [Send message content]"
+            },
+            "content": {
+              "type": "string",
+              "description": "Message content, a string serialized from a JSON structure. The value of this parameter corresponds to `msg_type`. For example, if the value of `msg_type` is `text`, this parameter needs to pass in text type content.**Note:**- JSON strings need to be escaped. For example, the line break `` is escaped as `\\`.- The maximum size of a text message request body cannot exceed 150 KB.- The maximum size of a card message or rich text message request body cannot exceed 30 KB. - If a card template (template_id) is used to send a message, the actual size also includes the card data size corresponding to the template. - If the message contains style tags, the actual message body length will be greater than the request body length you entered.- For images, you need to [upload the image] first, and then use the image's Key to send a message.- Audio, video, and files need to be [uploaded] first, and then the file's key is used to send a message. Note that you cannot use the file_token returned by the cloud document [upload material] interface.For different types of message content formats and usage restrictions, see [Sending Message Content]"
+            },
+            "uuid": {
+              "type": "string",
+              "description": "A custom unique string sequence used to request deduplication when sending messages. For requests with the same uuid, at most one message can be successfully sent within 1 hour.**Note**: You can customize the parameter value by referring to the example value. When sending different message contents, if this parameter is passed in, you need to change the value of the parameter in each request"
+            }
+          },
+          "required": [
+            "receive_id",
+            "msg_type",
+            "content"
+          ],
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "receive_id_type": {
+              "type": "string",
+              "enum": [
+                "open_id",
+                "union_id",
+                "user_id",
+                "email",
+                "chat_id"
+              ],
+              "description": "Message recipient ID type. Support open_id/union_id/user_id/email/chat_id Options:open_id(Identifies a user to an app. The same user has different Open IDs in different apps. [How to get Open ID]),union_id(Identifies a user to a tenant that acts as a developer. A user has the same Union ID in apps developed by the same developer, and has different Union IDs in apps developed by different developers. A developer can use Union ID to link the same user's identities in multiple apps. [How to get Union ID]),user_id(Identifies a user to a tenant. The same user has different User IDs in different tenants. In one single tenant, a user has the same User ID in all apps （including store apps）. User ID is usually used to communicate user data between different apps. [How to get User ID].),email(Identifies users by \"email\", which is the user's actual email address),chat_id(Identifies group chats by chat_id. You can call the API [Search for groups visible to a user or bot] to obtain the chat_id value. For group ID description, refer to [Group ID description].</md-enum-item>)"
+            }
+          },
+          "required": [
+            "receive_id_type"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "data",
+        "params"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "lark-mcp:im_v1_message_list": {
+    "name": "im_v1_message_list",
+    "original_name": "im_v1_message_list",
+    "server": "lark-mcp",
+    "description": "[Feishu/Lark]-Messaging-Message management-Get chat history-Obtains chat history (chat records) of chats (including private chats and group chats)",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object",
+          "properties": {
+            "container_id_type": {
+              "type": "string",
+              "description": "Container type.**Optional values**:- `chat`: includes single chat (p2p) and group chat (group)- `thread`: thread**Note**: For thread messages in **normal conversation groups**, only the root message of the thread can be obtained through the `chat` container type. You can obtain all messages in the thread reply by specifying the container type as `thread`"
+            },
+            "container_id": {
+              "type": "string",
+              "description": "Container ID. The ID type is the same as the value of container_id_type.- For how to obtain the ID of a group chat or a single chat, see [Group ID Description].- For how to obtain the topic ID, see the **How ​​to obtain thread_id** section of [Topic Overview]"
+            },
+            "start_time": {
+              "type": "string",
+              "description": "The start time of the historical information to be queried, in seconds.**Notice**: The `thread` container type does not currently support obtaining messages within a specified time range"
+            },
+            "end_time": {
+              "type": "string",
+              "description": "The end time of the historical information to be queried, in seconds.**Notice**: The `thread` container type does not currently support obtaining messages within a specified time range"
+            },
+            "sort_type": {
+              "type": "string",
+              "enum": [
+                "ByCreateTimeAsc",
+                "ByCreateTimeDesc"
+              ],
+              "description": "Message sorting method.**Notice**: When using `page_token` for paging requests, the sorting method (`sort_type`) is the same as the first request, and changing the sorting method midway is not supported. Options:ByCreateTimeAsc(Sort by message creation time ascending),ByCreateTimeDesc(Sort by message creation time descending)"
+            },
+            "page_size": {
+              "type": "number",
+              "description": "The page size is the number of data items returned in a single request"
+            },
+            "page_token": {
+              "type": "string",
+              "description": "Page identifier. It is not filled in the first request, indicating traversal from the beginning; when there will be more groups, the new page_token will be returned at the same time, and the next traversal can use the page_token to get more groups"
+            }
+          },
+          "required": [
+            "container_id_type",
+            "container_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "params"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

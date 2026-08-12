@@ -1,0 +1,272 @@
+{
+  "reddit:create_reddit_post": {
+    "name": "create_reddit_post",
+    "original_name": "create_reddit_post",
+    "server": "reddit",
+    "description": "Creates a new text or link post on a specified, existing Reddit subreddit, optionally applying a flair.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "flair_id": {
+          "type": "string",
+          "description": "Optional ID of the flair to apply to the post. Use the 'REDDIT_GET_USER_FLAIR' action to find available flair IDs for the specified subreddit. Omit this field entirely if no flair is needed.\nExample: \"a1b2c3d4-e5f6-7890-1234-567890abcdef\""
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "link",
+            "self"
+          ],
+          "description": "The type of the post. Use 'self' for a text-based post or 'link' for a post that links to an external URL.\nExamples:\n  \"self\"\n  \"link\""
+        },
+        "subreddit": {
+          "type": "string",
+          "description": "The name of the subreddit (without the 'r/' prefix) where the post will be submitted.\nExamples:\n  \"learnpython\"\n  \"AskReddit\""
+        },
+        "text": {
+          "type": "string",
+          "description": "The markdown-formatted text content for a 'self' post. Required if `kind` is 'self'.\nExample: \"This is the body of my text post. It can include **markdown** formatting.\""
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the post. Must be 300 characters or less.\nExamples:\n  \"My New Project!\"\n  \"Interesting Article I Found\""
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL for a 'link' post. Required if `kind` is 'link'.\nExample: \"https://www.example.com/news/article.html\""
+        }
+      },
+      "required": [
+        "kind",
+        "subreddit",
+        "title"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:delete_reddit_comment": {
+    "name": "delete_reddit_comment",
+    "original_name": "delete_reddit_comment",
+    "server": "reddit",
+    "description": "Deletes a Reddit comment, identified by its fullname ID, if it was authored by the authenticated user.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The full 'thing ID' (fullname, e.g., 't1_c0s4w1c') of the comment to delete; typically starts with 't1_'.\nExample: \"t1_c0s4w1c\""
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:delete_reddit_post": {
+    "name": "delete_reddit_post",
+    "original_name": "delete_reddit_post",
+    "server": "reddit",
+    "description": "Permanently deletes a Reddit post by its ID, provided the authenticated user has deletion permissions for that post.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The full name (fullname) of the Reddit post to be deleted. This ID must start with 't3_' followed by the post's unique base36 identifier.\nExamples:\n  \"t3_1abcdef\"\n  \"t3_gfedcba\""
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:edit_reddit_comment_or_post": {
+    "name": "edit_reddit_comment_or_post",
+    "original_name": "edit_reddit_comment_or_post",
+    "server": "reddit",
+    "description": "Edits the body text of the authenticated user's own existing comment or self-post on Reddit; cannot edit link posts or titles.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The new raw markdown text for the body of the comment or self-post.\nExample: \"This is the *updated* content with **markdown** formatting.\""
+        },
+        "thing_id": {
+          "type": "string",
+          "description": "The full name (fullname) of the comment or self-post to edit. This is a combination of a prefix (e.g., 't1_' for comment, 't3_' for post) and the item's ID.\nExamples:\n  \"t1_c0c0c0c\"\n  \"t3_h0h0h0h\""
+        }
+      },
+      "required": [
+        "text",
+        "thing_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:get_user_flair": {
+    "name": "get_user_flair",
+    "original_name": "get_user_flair",
+    "server": "reddit",
+    "description": "Fetches the list of available link flairs (i.e., post flairs, not user flairs) for a given subreddit.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "subreddit": {
+          "type": "string",
+          "description": "Name of the subreddit (e.g., 'pics', 'gaming') for which to retrieve available link flairs.\nExamples:\n  \"learnpython\"\n  \"datascience\"\n  \"announcements\""
+        }
+      },
+      "required": [
+        "subreddit"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:post_reddit_comment": {
+    "name": "post_reddit_comment",
+    "original_name": "post_reddit_comment",
+    "server": "reddit",
+    "description": "Posts a comment on Reddit, replying to an existing and accessible submission (post) or another comment.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The raw Markdown text of the comment to be submitted.\nExamples:\n  \"This is an insightful comment!\"\n  \"I agree completely.\""
+        },
+        "thing_id": {
+          "type": "string",
+          "description": "The ID of the parent post (link) or comment, prefixed with 't3_' for a post (e.g., 't3_10omtdx') or 't1_' for a comment (e.g., 't1_h2g9w8l').\nExamples:\n  \"t3_10omtdx\"\n  \"t1_h2g9w8l\""
+        }
+      },
+      "required": [
+        "text",
+        "thing_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:retrieve_post_comments": {
+    "name": "retrieve_post_comments",
+    "original_name": "retrieve_post_comments",
+    "server": "reddit",
+    "description": "Retrieves all comments for a Reddit post given its article ID (which must be for an existing, public post); nested replies within comments are returned as raw dictionaries requiring parsing.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "article": {
+          "type": "string",
+          "description": "Base-36 ID of the Reddit post (e.g., 'q5u7q5'), typically found in the post's URL and not including the 't3_' prefix.\nExamples:\n  \"q5u7q5\"\n  \"13a9zao\""
+        }
+      },
+      "required": [
+        "article"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:retrieve_reddit_post": {
+    "name": "retrieve_reddit_post",
+    "original_name": "retrieve_reddit_post",
+    "server": "reddit",
+    "description": "Retrieves the current hot posts from a specified, publicly accessible subreddit.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The maximum number of posts to return. Default is 5. Set to 0 to retrieve all available posts (or the maximum allowed by the Reddit API for a single request, typically up to 100 for this type of listing).\nExamples:\n  \"5\"\n  \"10\"\n  \"0\"\n  \"25\"",
+          "default": 5
+        },
+        "subreddit": {
+          "type": "string",
+          "description": "The name of the subreddit from which to retrieve posts (e.g., 'popular', 'pics'). Do not include 'r/'.\nExamples:\n  \"technology\"\n  \"python\"\n  \"news\""
+        }
+      },
+      "required": [
+        "subreddit"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:retrieve_specific_comment": {
+    "name": "retrieve_specific_comment",
+    "original_name": "retrieve_specific_comment",
+    "server": "reddit",
+    "description": "Retrieves detailed information for a specific Reddit comment or post using its fullname.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Fullname of the comment or post to retrieve (e.g., 't1_c123456', 't3_x56789').\nExamples:\n  \"t1_c123456\"\n  \"t3_x56789\""
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "reddit:search_across_subreddits": {
+    "name": "search_across_subreddits",
+    "original_name": "search_across_subreddits",
+    "server": "reddit",
+    "description": "Searches Reddit for content (e.g., posts, comments) using a query, with results typically confined to subreddits unless `restrict_sr` is set to False.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "maximum": 100,
+          "description": "The maximum number of search results to return. Default is 5. Maximum allowed value is 100.\nExamples:\n  \"5\"\n  \"10\"\n  \"25\"",
+          "default": 5
+        },
+        "restrict_sr": {
+          "type": "boolean",
+          "description": "If True (default), confines the search to posts and comments within subreddits. If False, the search scope is broader and may include matching subreddit names or other Reddit entities.\nExamples:\n  true\n  false",
+          "default": true
+        },
+        "search_query": {
+          "type": "string",
+          "description": "The search query string used to find content across subreddits.\nExamples:\n  \"latest AI research\"\n  \"funny cat videos\"\n  \"python programming tips\""
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "relevance",
+            "new",
+            "top",
+            "comments"
+          ],
+          "description": "The criterion for sorting search results. 'relevance' (default) sorts by relevance to the query. 'new' sorts by newest first. 'top' sorts by highest score (typically all-time). 'comments' sorts by the number of comments.\nExamples:\n  \"relevance\"\n  \"new\"\n  \"top\"\n  \"comments\"",
+          "default": "relevance"
+        }
+      },
+      "required": [
+        "search_query"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}
