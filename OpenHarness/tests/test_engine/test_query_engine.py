@@ -21,6 +21,7 @@ from openharness.engine.stream_events import (
     AssistantTextDelta,
     AssistantTurnComplete,
     CompactProgressEvent,
+    DirectorEventEmitted,
     ErrorEvent,
     StatusEvent,
     ToolExecutionCompleted,
@@ -363,6 +364,78 @@ async def test_query_engine_executes_tool_calls(tmp_path: Path, monkeypatch):
     assert isinstance(events[-1], AssistantTurnComplete)
     assert "alpha and beta" in events[-1].message.text
     assert len(engine.messages) == 4
+
+
+@pytest.mark.asyncio
+async def test_query_engine_emits_director_events_with_tool_call_correlation(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.delenv("CLAUDE_CODE_COORDINATOR_MODE", raising=False)
+    sample = tmp_path / "hello.txt"
+    sample.write_text("alpha\n", encoding="utf-8")
+
+    from director_harness import DirectorHarness
+
+    engine = QueryEngine(
+        api_client=FakeApiClient(
+            [
+                _FakeResponse(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[
+                            ToolUseBlock(
+                                id="toolu_director",
+                                name="read_file",
+                                input={"path": str(sample)},
+                            )
+                        ],
+                    ),
+                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
+                ),
+                _FakeResponse(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[TextBlock(text="done")],
+                    ),
+                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
+                ),
+            ]
+        ),
+        tool_registry=create_default_tool_registry(),
+        permission_checker=PermissionChecker(
+            PermissionSettings(mode=PermissionMode.FULL_AUTO)
+        ),
+        cwd=tmp_path,
+        model="claude-test",
+        system_prompt="system",
+        director=DirectorHarness(),
+    )
+
+    events = [event async for event in engine.submit_message("read the file")]
+
+    started = next(
+        index
+        for index, event in enumerate(events)
+        if isinstance(event, ToolExecutionStarted)
+    )
+    director = next(
+        index
+        for index, event in enumerate(events)
+        if isinstance(event, DirectorEventEmitted)
+    )
+    completed = next(
+        index
+        for index, event in enumerate(events)
+        if isinstance(event, ToolExecutionCompleted)
+    )
+    director_event = events[director]
+
+    assert started < director < completed
+    assert director_event.tool_use_id == "toolu_director"
+    assert director_event.requested_tool_name == "read_file"
+    assert director_event.event == "tool_check"
+    assert director_event.status == "passed"
 
 
 @pytest.mark.asyncio

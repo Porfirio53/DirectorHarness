@@ -43,6 +43,21 @@ class ToolExecutionCompleted:
 
 
 @dataclass(frozen=True)
+class DirectorEventEmitted:
+    """执行保障层产生的、可安全展示的工具调用中间事件。"""
+
+    event: str
+    tool_name: str
+    requested_tool_name: str
+    status: str
+    detail: str
+    session_id: str = ""
+    tool_use_id: str = ""
+    data: dict[str, Any] | None = None
+    timestamp: float | None = None
+
+
+@dataclass(frozen=True)
 class ErrorEvent:
     """An error that should be surfaced to the user."""
 
@@ -84,6 +99,7 @@ StreamEvent = (
     | AssistantTurnComplete
     | ToolExecutionStarted
     | ToolExecutionCompleted
+    | DirectorEventEmitted
     | ErrorEvent
     | StatusEvent
     | CompactProgressEvent

@@ -13,6 +13,7 @@ from openharness.rehearsal import mcp_persona_rehearsal
 from openharness.rehearsal.mcp_persona_rehearsal import (
     VERIFIED52_PROTOCOL_ID,
     VERIFIED52_WRITER_ARM,
+    VERIFIED52_WRITER_DIRECTOR_ARM,
     VERIFIED_TASK_IDS,
     read_jsonl,
     score_rehearsal_trial,
@@ -111,7 +112,7 @@ def _validate_verified52_inputs(
     arm = verified52_experiment_arm(run_config)
     if arm is None:
         raise ValueError(
-            "Source Agent run is not an exact Original or Writer Verified52 arm"
+            "Source Agent run is not an exact Original, Writer, or Writer+Director Verified52 arm"
         )
     if (
         run_config.get("protocol_id") != VERIFIED52_PROTOCOL_ID
@@ -124,10 +125,16 @@ def _validate_verified52_inputs(
         or baseline_summary.get("valid_result_count") != 104
     ):
         raise ValueError("Source Agent run is not a ready Verified52 protocol arm")
-    if arm == VERIFIED52_WRITER_ARM:
+    if arm in {VERIFIED52_WRITER_ARM, VERIFIED52_WRITER_DIRECTOR_ARM}:
         writer_gate = baseline_summary.get("writer_smoke_gate")
         if not isinstance(writer_gate, Mapping) or writer_gate.get("passed") is not True:
             raise ValueError("Writer Verified52 source did not pass the Writer gate")
+    if arm == VERIFIED52_WRITER_DIRECTOR_ARM:
+        director_gate = baseline_summary.get("director_smoke_gate")
+        if not isinstance(director_gate, Mapping) or director_gate.get("passed") is not True:
+            raise ValueError(
+                "Writer+Director Verified52 source did not pass the Director gate"
+            )
     if semantic_summary.get("semantic_review_ready") is not True:
         raise ValueError("Semantic checkpoint review is incomplete")
     for key, result in results.items():

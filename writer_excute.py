@@ -102,11 +102,13 @@ def extract_tool_trace_from_stream_json(stdout: str) -> dict[str, Any]:
     - tool_events: 详细工具事件；
     - tool_sequence: 仅保留开始/结束节点的紧凑顺序；
     - assistant_text: 合并后的演员文本输出；
-    - used_ask_user_question: 是否触发过 ask_user_question。
+    - used_ask_user_question: 是否触发过 ask_user_question；
+    - director_events: Director 产生的独立执行保障过程。
     """
 
     tool_events: list[dict[str, Any]] = []
     tool_sequence: list[dict[str, str]] = []
+    director_events: list[dict[str, Any]] = []
     assistant_chunks: list[str] = []
     for line in stdout.splitlines():
         text = line.strip()
@@ -124,6 +126,22 @@ def extract_tool_trace_from_stream_json(stdout: str) -> dict[str, Any]:
             complete_text = str(payload.get("text", ""))
             if complete_text:
                 assistant_chunks = [complete_text]
+            continue
+        if event_type == "director_event":
+            event = {
+                    "event": str(payload.get("event", "")),
+                    "tool_name": str(payload.get("tool_name", "")),
+                    "requested_tool_name": str(payload.get("requested_tool_name", "")),
+                    "status": str(payload.get("status", "")),
+                    "detail": str(payload.get("detail", "")),
+                    "session_id": str(payload.get("session_id", "")),
+                    "tool_use_id": str(payload.get("tool_use_id", "")),
+                    "timestamp": payload.get("timestamp"),
+                    "data": payload.get("data") if isinstance(payload.get("data"), dict) else {},
+                }
+            if event["timestamp"] is None:
+                event.pop("timestamp")
+            director_events.append(event)
             continue
         if event_type in {"tool_started", "tool_completed"}:
             normalized = {
@@ -147,6 +165,7 @@ def extract_tool_trace_from_stream_json(stdout: str) -> dict[str, Any]:
         "tool_sequence": tool_sequence,
         "assistant_text": "".join(assistant_chunks).strip(),
         "used_ask_user_question": any(item.get("name") == "ask_user_question" for item in tool_sequence),
+        "director_events": director_events,
     }
 
 
@@ -163,8 +182,9 @@ def build_execute_prompt(query: str, summary: dict[str, Any], score: int, score_
     actor_harness_output = str(summary.get("actor_harness_output", "")).strip()
     final_scripts = summary.get("final_script_report") or summary.get("script_report")
     execute_instruction = {
-        "high": "请将以下执行剧本视为已经通过审核。执行时优先遵循剧本中明确的目标、步骤和验证方式，直接进入真实执行，并输出清晰的执行步骤与最终结果。",
-        "medium": "请将以下执行剧本视为基本合格。执行时必须保留谨慎策略：先简要确认关键前提，再按照剧本中的计划执行，遇到不确定项时明确说明假设，并输出执行步骤与最终结果。",
+        "high": "请将以下执行剧本视为已经通过审核。执行时优先遵循剧本中明确的目标、步骤和验证方式，直接进入真实执行，并以用户需要的最终内容为主。",
+        "medium": "请将以下执行剧本视为基本合格。执行时必须保留谨慎策略：先简要确认关键前提，再按照剧本中的计划执行，遇到不确定项时明确说明假设，并以用户需要的最终内容为主。",
+        "low": "以下执行剧本评分不足，原判断仍建议重新生成剧本。当前为临时强制执行：必须先使用可用工具核验关键路径、输入和前提，不能将剧本中的未验证假设视为事实；无法核验时明确说明原因，并以用户需要的最终内容为主。",
     }[score_band]
     payload = {
         "user_original_query": query,
@@ -174,18 +194,58 @@ def build_execute_prompt(query: str, summary: dict[str, Any], score: int, score_
     }
     if final_scripts is not None:
         payload["final_scripts"] = final_scripts
+    execution_plan_context = summary.get("execution_plan_context")
+    if isinstance(execution_plan_context, dict):
+        payload["execution_plan_context"] = execution_plan_context
     return "\n\n".join(
         [
             execute_instruction,
-            "下面给出演员 Harness 当前输出证据与 final_scripts。无需再次生成剧本，请直接依据 final_scripts 进入真实执行，并优先复用其中已经形成的步骤、风险提示、验证思路与工具判断。",
+            "下面给出演员 Harness 当前输出证据与 final_scripts。无需再次生成剧本，请直接依据 final_scripts 进入真实执行，并优先复用其中已经形成的步骤、风险提示、验证思路与工具判断。若 execution_plan_context 存在，它记录本轮计划继承关系及上一轮已审核计划：必须按其中 action 和 plan_reference_usage 延续有效部分，并以本轮 final_scripts 为当前执行依据；不得把计划处理标签、编剧指令或剧本修订要求当成用户任务目标。工具决策必须按以下顺序进行：1）检索当前已注册、可直接调用的工具；2）优先组合现有工具完成任务；3）仍缺少能力时，检索 final_scripts 中能力描述相符且标记为 runtime_discovery 或 auto_connectable 的 MCP 候选；4）仅允许 Director 对人工备案候选在运行时连接、tools/list 并注册后调用，不能假设候选 MCP 已可用或编造其工具名；5）候选无法连接、注册或通过参数/权限检查时，使用剧本中的降级方案，或明确说明阻塞并请求澄清。",
             json.dumps(payload, ensure_ascii=False, indent=2),
-            "请开始真实执行，输出内容至少包含：1）执行步骤；2）关键观察；3）最终结果；4）若仍有残余风险，给出简短提示。",
+            "请开始真实执行。优先直接交付用户所需的内容，避免为了展示流程而套用固定分段模板。仅当实际发生关键工具调用、关键步骤会影响结果可信度、存在必须说明的假设/阻塞，或仍有会影响用户决策的风险时，再用简短自然语言补充相关过程、观察或风险提示；无需机械列出“执行步骤、关键观察、最终结果、残余风险”等标题。",
         ]
+    )
+
+
+def has_executable_final_script(summary: dict[str, Any]) -> bool:
+    report = summary.get("final_script_report") or summary.get("script_report")
+    if not isinstance(report, dict):
+        return False
+    task_profile = report.get("task_profile")
+    execution_plan = report.get("execution_plan")
+    if not isinstance(task_profile, dict) or not isinstance(execution_plan, dict):
+        return False
+    task_goal = task_profile.get("task_goal")
+    expected_output = task_profile.get("expected_output")
+    recommended_steps = execution_plan.get("recommended_steps")
+    validation_steps = execution_plan.get("validation_steps")
+    execution_suggestion = report.get("execution_suggestion")
+    return (
+        isinstance(task_goal, str)
+        and bool(task_goal.strip())
+        and isinstance(expected_output, str)
+        and bool(expected_output.strip())
+        and isinstance(recommended_steps, list)
+        and any(isinstance(step, str) and step.strip() for step in recommended_steps)
+        and isinstance(validation_steps, list)
+        and any(isinstance(step, str) and step.strip() for step in validation_steps)
+        and isinstance(execution_suggestion, str)
+        and bool(execution_suggestion.strip())
     )
 
 
 def decide_execution(summary: dict[str, Any]) -> ExecutionDecision:
     """根据剧本评分决定是否进入真实执行阶段。"""
+
+    mode = str(summary.get("mode") or "").strip()
+    query = str(summary.get("query", "")).strip()
+    if mode == "vanilla":
+        if not query:
+            return ExecutionDecision(False, "blocked", None, "vanilla 模式缺少用户原始 query，暂不进入真实执行")
+        return ExecutionDecision(True, "direct", query, "vanilla 模式不经过剧本生成与评估，直接依据用户输入进入 OpenHarness 执行")
+
+    if not has_executable_final_script(summary):
+        return ExecutionDecision(False, "blocked", None, "未生成内容完整的 final_scripts，禁止回退为仅依据用户原始问题执行")
 
     score = summary.get("judge_overall_score")
     if not isinstance(score, int):
@@ -193,12 +253,11 @@ def decide_execution(summary: dict[str, Any]) -> ExecutionDecision:
             score = round(score)
         else:
             return ExecutionDecision(False, "blocked", None, "缺少 judge_overall_score，暂不进入真实执行")
-    query = str(summary.get("query", "")).strip()
     if score > 85:
         return ExecutionDecision(True, "high", build_execute_prompt(query, summary, score, "high"), "总体评分高于 85，直接进入真实执行")
     if score >= 70:
         return ExecutionDecision(True, "medium", build_execute_prompt(query, summary, score, "medium"), "总体评分位于 70-85，按谨慎执行策略进入真实执行")
-    return ExecutionDecision(False, "blocked", None, "总体评分低于 70，保持为重新生成执行剧本")
+    return ExecutionDecision(True, "low", build_execute_prompt(query, summary, score, "low"), "总体评分低于 70，保留重新生成剧本判断并按低分谨慎策略进入真实执行")
 
 
 def run_writer_harness(args, mode: str, query: str, root_dir: Path) -> dict[str, Any]:
@@ -295,6 +354,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--writer-api-key", default=os.environ.get("WRITER_API_KEY"), help="编剧 Harness api_key")
     parser.add_argument("--oh-bin", default="oh", help="OpenHarness CLI 可执行文件名或路径")
     parser.add_argument("--openharness-src", default=None, help="OpenHarness 源码 src 目录")
+    parser.add_argument("--director-harness-enabled", action="store_true", help="启用 Director Harness 的工具调用预检与 MCP 替代")
+    parser.add_argument("--director-log-path", default=None, help="Director Harness JSONL 事件日志路径；默认使用项目 logs/director-events.jsonl")
     parser.add_argument("--oh-real-run", action="store_true", help="默认 dry-run；开启后执行真实 OpenHarness")
     parser.add_argument("--actor-model", default=os.environ.get("ACTOR_MODEL"), help="覆盖演员 Harness 模型")
     parser.add_argument("--actor-base-url", default=os.environ.get("ACTOR_BASE_URL"), help="覆盖演员 Harness base_url")
@@ -306,6 +367,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="以 JSON 摘要形式输出结果")
     parser.add_argument("--print-preview", type=int, default=800, help="命令行打印输入/输出预览长度；0 表示不打印")
     return parser
+
+
+def configure_director_harness_environment(args, root_dir: Path) -> None:
+    if not getattr(args, "director_harness_enabled", False):
+        os.environ["DIRECTOR_HARNESS_ENABLED"] = "false"
+        return
+    catalog_path = root_dir / "director_harness" / "director_mcp_catalog.json"
+    log_path = Path(getattr(args, "director_log_path", "") or root_dir / "logs" / "director-events.jsonl")
+    if not log_path.is_absolute():
+        log_path = root_dir / log_path
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    openharness_src = Path(getattr(args, "openharness_src", "") or root_dir / "OpenHarness" / "src")
+    python_paths = [str(root_dir), str(openharness_src)]
+    existing_pythonpath = os.environ.get("PYTHONPATH")
+    if existing_pythonpath:
+        python_paths.append(existing_pythonpath)
+    os.environ["DIRECTOR_HARNESS_ENABLED"] = "true"
+    os.environ["DIRECTOR_MCP_CATALOG"] = str(catalog_path)
+    os.environ["DIRECTOR_LOG_PATH"] = str(log_path)
+    os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 
 def preview_text(text: str, limit: int) -> str:
@@ -381,6 +462,7 @@ def build_regeneration_suggestions(judgment: dict[str, Any]) -> list[str]:
         "success_criteria": "补充成功标准或最小完成条件",
         "known_conditions": "补充当前已知条件、约束和输入前提",
         "unknown_or_risk": "补充未知条件、潜在风险或缺失工具说明",
+        "missing_tool_requirements": "补充缺失能力明细：动作拆解、已有工具组合或 MCP 策略、前置条件、验证、风险与不可用时的处理方式",
         "recommended_steps": "补充建议执行步骤",
         "validation_steps": "补充验证步骤或结果确认方式",
         "judgment_rationale": "补充难度判断或执行建议的依据",
@@ -392,6 +474,7 @@ def build_regeneration_suggestions(judgment: dict[str, Any]) -> list[str]:
 def summarize_writer_result(result: dict[str, Any]) -> dict[str, Any]:
     """把 writer_harness 返回结果整理成更直观的在线摘要结构。"""
 
+    mode = result.get("mode")
     judgment = result.get("online_completeness_judgment") or {}
     next_action = judgment.get("next_action", "unknown")
     suggestions = build_regeneration_suggestions(judgment)
@@ -407,11 +490,20 @@ def summarize_writer_result(result: dict[str, Any]) -> dict[str, Any]:
         actor_harness_output,
     )
     if final_script_report and isinstance(final_script_report.get("difficulty_profile"), dict):
-        final_script_report["difficulty_profile"]["available_tools"] = capability_match["available_tools"]
-        final_script_report["difficulty_profile"]["missing_tools"] = capability_match["missing_tools"]
+        difficulty_profile = final_script_report["difficulty_profile"]
+        difficulty_profile["available_tools"] = capability_match["available_tools"]
+        difficulty_profile["missing_tools"] = capability_match["missing_tools"]
+        difficulty_profile["missing_tool_requirements"] = capability_match["missing_tool_requirements"]
         final_script_report["difficulty_profile"]["required_capabilities"] = capability_match["required_capabilities"]
+    if mode == "vanilla":
+        judgment = {}
+        judge_evaluation = {}
+        suggestions = []
+        script_report = None
+        final_script_report = None
+        next_action = "direct_execute"
     return {
-        "mode": result.get("mode"),
+        "mode": mode,
         "ok": result.get("ok"),
         "return_code": result.get("return_code"),
         "stderr": result.get("stderr", ""),
@@ -527,6 +619,7 @@ def main() -> None:
 
     parser = build_parser()
     args = parser.parse_args()
+    configure_director_harness_environment(args, Path(__file__).resolve().parent)
     root_dir = Path(__file__).resolve().parent
     started_at = time.perf_counter()
     result = run_writer_harness(args, args.mode, args.query, root_dir)
@@ -537,6 +630,7 @@ def main() -> None:
     summary["execution"]["score_band"] = decision.score_band
     summary["execution"]["decision_rationale"] = decision.rationale
     if not args.skip_execute and decision.should_execute and decision.execution_prompt:
+        summary["execution"]["status"] = "running"
         execution_result = run_execute_stage(args, decision.execution_prompt, root_dir)
         summary["execution"] = {
             "executed": True,

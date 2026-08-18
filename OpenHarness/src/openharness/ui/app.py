@@ -195,6 +195,7 @@ async def run_print_mode(
         AssistantTextDelta,
         AssistantTurnComplete,
         CompactProgressEvent,
+        DirectorEventEmitted,
         ErrorEvent,
         StatusEvent,
         ToolExecutionCompleted,
@@ -265,6 +266,23 @@ async def run_print_mode(
                 if output_format == "stream-json":
                     obj = {"type": "tool_completed", "tool_name": event.tool_name, "output": event.output, "is_error": event.is_error}
                     print(json.dumps(obj), flush=True)
+                    events_list.append(obj)
+            elif isinstance(event, DirectorEventEmitted):
+                if output_format == "stream-json":
+                    obj = {
+                        "type": "director_event",
+                        "version": 1,
+                        "event": event.event,
+                        "tool_name": event.tool_name,
+                        "requested_tool_name": event.requested_tool_name,
+                        "status": event.status,
+                        "detail": event.detail,
+                        "session_id": event.session_id,
+                        "tool_use_id": event.tool_use_id,
+                        "data": event.data or {},
+                        "timestamp": event.timestamp,
+                    }
+                    print(json.dumps(obj, ensure_ascii=False), flush=True)
                     events_list.append(obj)
             elif isinstance(event, ErrorEvent):
                 if output_format == "text":

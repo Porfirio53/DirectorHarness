@@ -8,7 +8,7 @@ if [[ "${1:-}" == "--check-only" ]]; then
 fi
 
 workspace_root="${1:-/home/patton/projects/harness}"
-env_file="${2:-${workspace_root}/tau3-bench/.env}"
+env_file="${2:-${workspace_root}/.env}"
 first_result_root="${3:-${workspace_root}/results/runs/writer-full/.repeat-set-01}"
 second_result_root="${4:-${workspace_root}/results/runs/writer-full/.repeat-set-02}"
 merged_result_root="${5:-${workspace_root}/results/runs/writer-full/results_with_Writer}"

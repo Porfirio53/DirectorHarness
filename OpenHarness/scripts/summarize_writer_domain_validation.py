@@ -128,7 +128,7 @@ def build_preflight(
     harnessbench_root = workspace_root / "HarnessBench"
     mcp_root = workspace_root / "MCP-Persona"
     python_bin = openharness_root / ".venv/bin/python"
-    archive = workspace_root / "writer_harness_demo.zip"
+    archive = workspace_root / "docs" / "writer_director_0812.zip"
     required_paths = (
         python_bin,
         env_file,

@@ -10,7 +10,7 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 openharness_root="$(cd "${script_dir}/.." && pwd)"
 workspace_root="${1:-$(cd "${openharness_root}/.." && pwd)}"
-env_file="${2:-${workspace_root}/tau3-bench/.env}"
+env_file="${2:-${workspace_root}/.env}"
 result_root="${3:-${workspace_root}/results/runs/writer-domain-validation-v1}"
 config_path="${4:-${workspace_root}/results/config/writer-domain-validation-v1.json}"
 harnessbench_root="${workspace_root}/HarnessBench"
@@ -83,7 +83,7 @@ run_harnessbench_arm() {
   if [[ "${mode}" == "writer_harness" ]]; then
     writer_args+=(
       --writer-workspace-root "${workspace_root}"
-      --writer-archive "${workspace_root}/writer_harness_demo.zip"
+      --writer-archive "${workspace_root}/docs/writer_director_0812.zip"
       --writer-model "${model}"
       --writer-max-tokens 4096
     )
@@ -138,7 +138,7 @@ run_mcp_arm() {
   if [[ "${mode}" == "writer_harness" ]]; then
     writer_args+=(
       --writer-workspace-root "${workspace_root}"
-      --writer-archive "${workspace_root}/writer_harness_demo.zip"
+      --writer-archive "${workspace_root}/docs/writer_director_0812.zip"
       --writer-model "${model}"
       --writer-max-tokens 4096
     )

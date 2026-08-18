@@ -66,7 +66,7 @@ class InteractionOrchestrator:
                 online_judgment.missing_checks,
             ).to_dict()
             if not online_judgment.is_complete:
-                retry_instruction = "\n\n---\nPlease revise the script content so that it explicitly includes these core sections as named fields or labeled sections: " + ", ".join(online_judgment.missing_sections) + ". Return the revised script content only."
+                retry_instruction = "\n\n---\nRevise the existing execution script so that it explicitly includes these core sections as named fields or labeled sections: " + ", ".join(online_judgment.missing_sections) + ". Preserve the original user business task, task_profile.task_type, task_profile.task_goal, task_profile.expected_output, and all valid plan content. The revision instruction is not the user task and must never become a task field. Return the revised script JSON only."
                 retry_prompt = final_prompt + retry_instruction
                 retry_result = self.actor_executor.execute(retry_prompt, request.mode)
                 retry_judgment = self.writer_harness.judge_online_completeness(retry_result.stdout, round_index=2)

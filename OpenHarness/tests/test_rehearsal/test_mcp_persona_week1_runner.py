@@ -9,6 +9,7 @@ import pytest
 from scripts.run_mcp_persona_week1 import (
     _build_run_config,
     _classify_trial,
+    _director_event_validation,
     _fatal_account_failure,
     _load_existing_results,
     _prepare_output_dir,
@@ -177,6 +178,64 @@ def test_trial_wall_clock_timeout_has_distinct_agent_status() -> None:
         "baseline_valid": True,
         "retry_eligible": False,
     }
+
+
+def test_director_validation_excludes_preflight_input_rejections() -> None:
+    valid_call = {
+        "tool_name": "mcp__server__valid",
+        "output": "ok",
+        "is_error": False,
+    }
+    invalid_call = {
+        "tool_name": "mcp__server__invalid",
+        "output": (
+            "Invalid input for mcp__server__invalid: required field missing"
+        ),
+        "is_error": True,
+    }
+    validation = _director_event_validation(
+        enabled=True,
+        tool_calls=[valid_call, invalid_call],
+        trajectory_events=[
+            {"type": "tool_started", **valid_call},
+            {
+                "type": "director_event",
+                "event": "tool_check",
+                "tool_use_id": "call-valid",
+            },
+            {"type": "tool_completed", **valid_call},
+            {"type": "tool_started", **invalid_call},
+            {"type": "tool_completed", **invalid_call},
+        ],
+    )
+
+    assert validation is not None
+    assert validation["tool_call_count"] == 2
+    assert validation["checked_tool_use_count"] == 1
+    assert validation["all_tool_calls_checked"] is True
+    assert validation["director_before_tool_completion"] is True
+
+
+def test_director_validation_does_not_hide_executed_tool_errors() -> None:
+    failed_call = {
+        "tool_name": "mcp__server__failed",
+        "output": "remote tool returned an error",
+        "is_error": True,
+    }
+    validation = _director_event_validation(
+        enabled=True,
+        tool_calls=[failed_call],
+        trajectory_events=[
+            {"type": "tool_started", **failed_call},
+            {"type": "tool_completed", **failed_call},
+        ],
+    )
+
+    assert validation is not None
+    assert validation["tool_call_count"] == 1
+    assert validation["checked_tool_use_count"] == 0
+    assert validation["all_tool_calls_checked"] is False
+    assert validation["director_before_tool_completion"] is False
 
 
 def test_locked_output_requires_resume_and_exact_configuration(

@@ -17,14 +17,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-API_KEY = os.environ.get(
-    "ANTHROPIC_API_KEY",
-    "sk-Ue1kdhq9prvNwuwySlzRtWVD7ek0iJJaHyPdKDa3ecKLwYuG",
-)
+API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 ANTHROPIC_BASE = "https://api.moonshot.cn/anthropic"
 OPENAI_BASE = "https://api.moonshot.cn/v1"
 MODEL = "kimi-k2.5"
 WORKSPACE = Path("/home/tangjiabin/AutoAgent")
+_SKIP_REAL_API = not API_KEY or not WORKSPACE.exists()
 
 RESULTS: dict[str, tuple[bool, float]] = {}
 
@@ -630,6 +628,10 @@ type: project
 # Main
 # ==================================================================
 async def main():
+    if _SKIP_REAL_API:
+        print("SKIP: set ANTHROPIC_API_KEY and provide /home/tangjiabin/AutoAgent to run real tasks")
+        return
+
     tests = [
         ("1. PR#17: diagnose skill on AutoAgent", task_diagnose_autoagent()),
         ("2. PR#12: memory research on AutoAgent", task_memory_research_autoagent()),

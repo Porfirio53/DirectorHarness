@@ -1,7 +1,11 @@
 # Project-local non-source directories
-docs/
-examples/
-results/
+/docs/
+/data/demo_file/
+/scripts/extract_pdf.py
+/examples/*
+!/examples/run_writer_harness.ps1
+!/examples/run_writer_harness.sh
+/results/
 
 # Editors and IDEs
 .vscode/
@@ -40,6 +44,13 @@ node_modules/
 .eslintcache
 .parcel-cache/
 .next/cache/
+
+# Writer Director runtime state and generated UI output
+.writer_harness_sessions/
+.dbg/
+logs/
+writer_harness_ui/dist/
+/writer_harness_ui/README.md
 
 # OS and editor temporary files
 .DS_Store

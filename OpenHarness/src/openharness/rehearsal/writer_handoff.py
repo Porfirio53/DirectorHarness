@@ -28,24 +28,26 @@ from openharness.api.client import (
 from openharness.engine.messages import ConversationMessage
 
 
-WRITER_ARCHIVE_PREFIX = "writer_harness_demo/"
+WRITER_ARCHIVE_PREFIX = "writer_director_0812/writer_harness_demo/"
 WRITER_CORE_FILES = (
     "writer_harness/__init__.py",
     "writer_harness/__main__.py",
     "writer_harness/actor_harness.py",
     "writer_harness/capability_matching.py",
     "writer_harness/cli.py",
-    "writer_harness/contract.py",
     "writer_harness/llm_clients.py",
     "writer_harness/models.py",
     "writer_harness/orchestrator.py",
     "writer_harness/prompts.py",
-    "writer_harness/review.py",
     "writer_harness/writer_harness.py",
+    "writer_harness/test_capability_matching.py",
     "writer_excute.py",
+    "writer_excute_multiturn.py",
 )
 WRITER_SUPPORT_FILES = (
-    "Writer_Harness_Overview.md",
+    "DIRECTOR_HARNESS_GUIDE.md",
+    "MULTITURN_WRITER_EXECUTE_GUIDE.md",
+    "WRITER_DIRECTOR_HARNESS_V1_ 说明文档.md",
     "docs/architecture.md",
     "docs/output_fields.md",
     "examples/run_writer_harness.ps1",
@@ -64,7 +66,7 @@ BLOCKING_SUGGESTIONS = {"ask_user", "reject", "defer"}
 
 @dataclass(frozen=True)
 class WriterDeploymentVerification:
-    """Non-blocking provenance audit against the historical team archive."""
+    """Byte-level deployment audit against the team Writer v1 archive."""
 
     ok: bool
     workspace_root: str
@@ -75,6 +77,7 @@ class WriterDeploymentVerification:
     archive_match: bool | None
     checked_files: int
     file_sha256: dict[str, str]
+    writer_source_version: str = "group_writer_v1"
     missing_files: tuple[str, ...] = ()
     mismatched_files: tuple[str, ...] = ()
 
@@ -100,29 +103,29 @@ class WriterCoreBindings:
     extract_report_metadata_from_stdout: Any
     writer_harness_class: Any
     match_openharness_capabilities: Any
-    prepare_actor_handoff: Any
-    prepare_actor_prompt_handoff: Any
-    audit_writer_report: Any
-    build_writer_review_request: Any
-    parse_writer_review: Any
-    writer_review_requires_revision: Any
-    apply_writer_review_patch: Any
 
 
 @dataclass(frozen=True)
 class WriterHandoffResult:
-    """One no-tool Writer report and its OpenHarness-side alignment metadata."""
+    """One team Writer v1 Actor-to-Writer handoff and its execution decision."""
 
     schema_version: int
     writer_mode: str
+    writer_source_version: str
+    actor_model: str
     writer_model: str
+    query: str
     source_report: dict[str, Any]
     final_report: dict[str, Any]
     actor_contract: dict[str, Any]
+    actor_harness_output: str
     raw_response: str
     core_online_completeness: dict[str, Any]
+    judge_completeness_evaluation: dict[str, Any]
+    judge_overall_score: int
     core_capability_match: dict[str, Any]
     aligned_capability_match: dict[str, Any]
+    execution_decision: dict[str, Any]
     live_tool_names: tuple[str, ...]
     usage: dict[str, int]
     retry_events: tuple[dict[str, Any], ...]
@@ -130,46 +133,58 @@ class WriterHandoffResult:
     request_sha256: str
     response_sha256: str
     tools_exposed_to_writer: int = 0
-    semantic_review: dict[str, Any] = field(default_factory=dict)
-    review_raw_response: str = ""
-    revision_raw_response: str | None = None
-    model_request_count: int = 1
+    regeneration_performed: bool = False
+    initial_actor_harness_output: str = ""
+    regeneration_raw_response: str | None = None
+    phase_metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
+    model_request_count: int = 2
 
     def to_dict(self, *, include_raw_response: bool = True) -> dict[str, Any]:
         value = asdict(self)
         if not include_raw_response:
             for key in (
+                "actor_harness_output",
                 "raw_response",
-                "review_raw_response",
-                "revision_raw_response",
+                "initial_actor_harness_output",
+                "regeneration_raw_response",
             ):
                 value.pop(key, None)
         return value
 
     def prompt_appendix(self) -> str:
-        """Return the reviewed report and execution guardrails for the actor."""
+        """Return the team Writer v1 final_scripts execution prompt."""
 
         payload = {
             "writer_mode": self.writer_mode,
-            "writer_policy": "reviewed_pre_execution_contract_v3_observe_only",
-            "task_contract": self.actor_contract,
+            "writer_source_version": self.writer_source_version,
+            "writer_policy": "team_writer_v1_scored_final_scripts",
+            "user_original_query": self.query,
+            "writer_overall_score": self.judge_overall_score,
+            "score_band": self.execution_decision.get("score_band"),
+            "final_scripts": self.actor_contract,
+            "capability_match": self.core_capability_match,
             "exact_recommended_tools": self.aligned_capability_match.get("available_tools", []),
         }
+        band = str(self.execution_decision.get("score_band") or "low")
+        instruction = {
+            "high": "Treat final_scripts as approved. Follow its goals, steps, and validation, and prioritize the final content requested by the user.",
+            "medium": "Treat final_scripts as basically sufficient. Confirm key preconditions, preserve its cautious strategy, and prioritize the final content requested by the user.",
+            "low": "The Writer score is low. Verify key paths, inputs, and assumptions with available tools before relying on final_scripts; state any unresolved blocker clearly.",
+        }.get(band, "Use final_scripts as the current execution plan.")
         return (
             "\n\n# Writer Harness pre-execution handoff\n\n"
-            "The original user request and live tool schemas remain authoritative. "
-            "Use this reviewed contract as a concise checklist. Values discovered "
-            "from files or tools, including IDs, tokens, enum values, field names, "
-            "and paths, must be copied verbatim rather than renamed or normalized. "
-            "Resolve required parameters before mutation, verify observable state "
-            "afterward, and replan on a listed trigger.\n\n"
+            + instruction
+            + " The original user request and live tool schemas remain authoritative. "
+            "Do not regenerate the script. Use final_scripts as the current execution "
+            "basis, preserve its risk and validation guidance, and deliver the user-facing "
+            "result without forcing a fixed section template.\n\n"
             + json.dumps(payload, ensure_ascii=False, indent=2)
         )
 
 
 @dataclass
 class WriterEventRecorder:
-    """Record honest v1 handoff and observe-only per-tool lifecycle events."""
+    """Record the team Writer v1 handoff and observe-only tool lifecycle events."""
 
     handoff: WriterHandoffResult
     events: list[dict[str, Any]] = field(default_factory=list)
@@ -181,15 +196,15 @@ class WriterEventRecorder:
             {
                 "type": "global_plan_created",
                 "writer_mode": self.handoff.writer_mode,
+                "writer_source_version": self.handoff.writer_source_version,
                 "request_sha256": self.handoff.request_sha256,
                 "response_sha256": self.handoff.response_sha256,
                 "tools_exposed_to_writer": self.handoff.tools_exposed_to_writer,
                 "model_request_count": self.handoff.model_request_count,
-                "semantic_review_performed": self.handoff.semantic_review.get("performed", False),
-                "revision_performed": self.handoff.semantic_review.get("revision_performed", False),
-                "final_contract_review_passed": self.handoff.semantic_review.get(
-                    "final_contract_audit", {}
-                ).get("passed"),
+                "writer_judge_completed": True,
+                "regeneration_performed": self.handoff.regeneration_performed,
+                "judge_overall_score": self.handoff.judge_overall_score,
+                "execution_score_band": self.handoff.execution_decision.get("score_band"),
                 "core_completeness_level": self.handoff.core_online_completeness.get(
                     "completeness_level"
                 ),
@@ -215,7 +230,7 @@ class WriterEventRecorder:
                     "type": "step_check_completed",
                     "step_id": step_id,
                     "tool_name": tool_name,
-                    "policy": "writer_v3_observe_only",
+                    "policy": "team_writer_v1_observe_only",
                     "recommended_tool_match": matched,
                     "decision": "allow",
                 },
@@ -223,7 +238,7 @@ class WriterEventRecorder:
                     "type": "action_allowed",
                     "step_id": step_id,
                     "tool_name": tool_name,
-                    "reason": "Writer v3 has no per-step blocking interface",
+                    "reason": "Team Writer v1 has no per-step blocking interface",
                 },
             ]
         )
@@ -287,10 +302,41 @@ class WriterEventRecorder:
         }
 
 
-class _NoLLM:
+class _StaticLLM:
+    def __init__(self, response: str) -> None:
+        self.response = response
+
     def complete(self, system_prompt: str, user_prompt: str) -> str:
         del system_prompt, user_prompt
-        raise RuntimeError("The deterministic completeness check must not call an LLM")
+        return self.response
+
+
+class _PromptCaptureLLM:
+    """Capture the exact team Writer v1 judge request without an API call."""
+
+    def __init__(self) -> None:
+        self.system_prompt = ""
+        self.user_prompt = ""
+
+    def complete(self, system_prompt: str, user_prompt: str) -> str:
+        self.system_prompt = system_prompt
+        self.user_prompt = user_prompt
+        return json.dumps(
+            {
+                "overall_score": 0,
+                "planning_score": 0,
+                "structure_score": 0,
+                "risk_score": 0,
+                "clarification_score": 0,
+                "overall_sufficiency": "insufficient",
+                "next_action": "re_generate_scripts",
+                "section_scores": {},
+                "check_scores": {},
+                "strengths": [],
+                "weaknesses": [],
+                "rationale": "prompt capture",
+            }
+        )
 
 
 @dataclass(frozen=True)
@@ -385,7 +431,7 @@ def verify_writer_deployment(
     *,
     include_support_files: bool = True,
 ) -> WriterDeploymentVerification:
-    """Record live hashes and compare with the historical zip for provenance only."""
+    """Require the deployed team Writer v1 files to match the supplied archive."""
 
     workspace_root = workspace_root.expanduser().resolve()
     archive_path = archive_path.expanduser().resolve()
@@ -421,9 +467,7 @@ def verify_writer_deployment(
         not missing and archive_complete and not mismatched if archive_available else None
     )
     return WriterDeploymentVerification(
-        # ``ok`` means the live Writer source is complete. Historical archive
-        # identity is provenance only and never locks an experiment run.
-        ok=not missing,
+        ok=bool(archive_available and archive_match is True),
         workspace_root=str(workspace_root),
         package_root=str(workspace_root / "writer_harness"),
         archive_path=str(archive_path),
@@ -432,6 +476,7 @@ def verify_writer_deployment(
         archive_match=archive_match,
         checked_files=len(relative_files),
         file_sha256=hashes,
+        writer_source_version="group_writer_v1",
         missing_files=tuple(missing),
         mismatched_files=tuple(mismatched),
     )
@@ -462,18 +507,6 @@ def load_writer_core(workspace_root: Path) -> WriterCoreBindings:
     actor = importlib.import_module(f"{alias}.actor_harness")
     writer = importlib.import_module(f"{alias}.writer_harness")
     matching = importlib.import_module(f"{alias}.capability_matching")
-    try:
-        contract = importlib.import_module(f"{alias}.contract")
-    except ModuleNotFoundError as exc:
-        if exc.name != f"{alias}.contract":
-            raise
-        contract = None
-    try:
-        review = importlib.import_module(f"{alias}.review")
-    except ModuleNotFoundError as exc:
-        if exc.name != f"{alias}.review":
-            raise
-        review = None
     loaded_path = Path(str(sys.modules[alias].__file__)).resolve()
     if loaded_path != package_init.resolve():
         raise ImportError(
@@ -488,19 +521,6 @@ def load_writer_core(workspace_root: Path) -> WriterCoreBindings:
         extract_report_metadata_from_stdout=actor.extract_report_metadata_from_stdout,
         writer_harness_class=writer.WriterHarness,
         match_openharness_capabilities=matching.match_openharness_capabilities,
-        prepare_actor_handoff=getattr(writer, "prepare_actor_handoff", None),
-        prepare_actor_prompt_handoff=getattr(writer, "prepare_actor_prompt_handoff", None),
-        audit_writer_report=(getattr(contract, "audit_writer_report", None) if contract else None),
-        build_writer_review_request=(
-            getattr(review, "build_writer_review_request", None) if review else None
-        ),
-        parse_writer_review=(getattr(review, "parse_writer_review", None) if review else None),
-        writer_review_requires_revision=(
-            getattr(review, "writer_review_requires_revision", None) if review else None
-        ),
-        apply_writer_review_patch=(
-            getattr(review, "apply_writer_review_patch", None) if review else None
-        ),
     )
 
 
@@ -564,7 +584,7 @@ def build_writer_request_text(
     live_tool_schemas: Sequence[Mapping[str, Any]],
     context: Mapping[str, Any] | None = None,
 ) -> str:
-    """Compose the original Writer prompt plus a current tool-name handoff."""
+    """Compose the team Writer v1 script prompt plus live OpenHarness schemas."""
 
     language = str(bindings.detect_language(query))
     try:
@@ -575,7 +595,7 @@ def build_writer_request_text(
             )
         )
     except TypeError:
-        # Backward compatibility for archived Writer implementations.
+        # The team Writer v1 prompt has the original one-argument interface.
         template = str(bindings.get_generated_scripts_template(language))
     label = str(bindings.get_user_task_label(language))
     tools = [record for schema in live_tool_schemas if (record := _tool_prompt_record(schema))]
@@ -616,7 +636,7 @@ def align_capability_match(
         "grep": ("grep",),
         "glob": ("glob",),
         "ls": ("glob",),
-        "apply_patch": ("edit_file",),
+        "apply_patch": ("edit_file", "write_file"),
         "deletefile": ("bash",),
         "runcommand": ("bash",),
         "checkcommandstatus": ("bash",),
@@ -684,6 +704,9 @@ def align_capability_match(
             )
         ),
         "required_capabilities": list(core_match.get("required_capabilities", [])),
+        "missing_tool_requirements": list(
+            core_match.get("missing_tool_requirements", [])
+        ),
         "alignment_details": details,
         "unmapped_source_labels": list(dict.fromkeys(unmapped)),
         "live_tool_count": len(live),
@@ -715,74 +738,125 @@ def _prepare_report_for_handoff(
     prepared = copy.deepcopy(dict(report))
     difficulty = prepared.get("difficulty_profile")
     if isinstance(difficulty, dict):
-        difficulty["available_tools"] = aligned["available_tools"]
-        difficulty["missing_tools"] = aligned["missing_tools"]
-        difficulty["required_capabilities"] = aligned["required_capabilities"]
-    if callable(bindings.prepare_actor_handoff):
-        prepared = bindings.prepare_actor_handoff(
-            prepared,
-            query=query,
-            live_tool_names=live_tool_names,
+        difficulty["available_tools"] = list(core_match.get("available_tools", []))
+        difficulty["missing_tools"] = list(core_match.get("missing_tools", []))
+        difficulty["missing_tool_requirements"] = list(
+            core_match.get("missing_tool_requirements", [])
+        )
+        difficulty["required_capabilities"] = list(
+            core_match.get("required_capabilities", [])
         )
     return prepared, dict(core_match), aligned
 
 
-def _audit_report(
+def _build_judge_request(
     bindings: WriterCoreBindings,
-    report: Mapping[str, Any],
     *,
     query: str,
-) -> dict[str, Any]:
-    if not callable(bindings.audit_writer_report):
-        audit = report.get("contract_audit")
-        return dict(audit) if isinstance(audit, Mapping) else {"passed": True}
-    try:
-        value = bindings.audit_writer_report(report, query=query)
-    except TypeError:
-        value = bindings.audit_writer_report(report)
-    if not isinstance(value, Mapping):
-        raise TypeError("external Writer contract audit is not serializable")
-    return dict(value)
-
-
-def _selected_tool_schemas(
+    actor_output: str,
     report: Mapping[str, Any],
-    live_tool_schemas: Sequence[Mapping[str, Any]],
-) -> list[dict[str, Any]]:
-    """Expose complete schemas only for exact tools selected in the draft."""
+    online_judgment: Any,
+) -> tuple[str, str]:
+    """Capture the exact request produced by the team Writer v1 judge."""
 
-    selected_names: list[str] = []
-    difficulty = report.get("difficulty_profile")
-    if isinstance(difficulty, Mapping) and isinstance(difficulty.get("available_tools"), list):
-        selected_names.extend(str(name) for name in difficulty["available_tools"])
-    plan = report.get("execution_plan")
-    steps = plan.get("recommended_steps") if isinstance(plan, Mapping) else None
-    for step in steps if isinstance(steps, list) else []:
-        if not isinstance(step, Mapping) or not isinstance(step.get("tools"), list):
-            continue
-        selected_names.extend(str(name) for name in step["tools"])
-    selected = set(name for name in selected_names if name)
-    return [
-        copy.deepcopy(dict(schema))
-        for schema in live_tool_schemas
-        if _tool_name_and_description(schema)[0] in selected
-    ]
-
-
-def _supports_v3_review(bindings: WriterCoreBindings, report: Mapping[str, Any]) -> bool:
-    try:
-        report_version = int(report.get("report_version", 0) or 0)
-    except (TypeError, ValueError):
-        return False
-    return report_version == 3 and all(
-        callable(value)
-        for value in (
-            bindings.build_writer_review_request,
-            bindings.parse_writer_review,
-            bindings.writer_review_requires_revision,
-            bindings.apply_writer_review_patch,
-        )
+    capture = _PromptCaptureLLM()
+    writer = bindings.writer_harness_class(capture)
+    writer.judge_scripts_content(
+        query,
+        actor_output,
+        dict(report),
+        list(online_judgment.matched_sections),
+        list(online_judgment.missing_sections),
+        list(online_judgment.matched_checks),
+        list(online_judgment.missing_checks),
     )
+    return capture.system_prompt, capture.user_prompt
+
+
+def _parse_judge_response(
+    bindings: WriterCoreBindings,
+    *,
+    response: str,
+    query: str,
+    actor_output: str,
+    report: Mapping[str, Any],
+    online_judgment: Any,
+) -> dict[str, Any]:
+    writer = bindings.writer_harness_class(_StaticLLM(response))
+    evaluation = writer.judge_scripts_content(
+        query,
+        actor_output,
+        dict(report),
+        list(online_judgment.matched_sections),
+        list(online_judgment.missing_sections),
+        list(online_judgment.matched_checks),
+        list(online_judgment.missing_checks),
+    )
+    return dict(evaluation.to_dict())
+
+
+def _retry_instruction(missing_sections: Sequence[str]) -> str:
+    return (
+        "\n\n---\nRevise the existing execution script so that it explicitly "
+        "includes these core sections as named fields or labeled sections: "
+        + ", ".join(str(value) for value in missing_sections)
+        + ". Preserve the original user business task, task_profile.task_type, "
+        "task_profile.task_goal, task_profile.expected_output, and all valid plan "
+        "content. The revision instruction is not the user task and must never "
+        "become a task field. Return the revised script JSON only."
+    )
+
+
+def _has_executable_final_script(report: Mapping[str, Any]) -> bool:
+    task_profile = report.get("task_profile")
+    execution_plan = report.get("execution_plan")
+    if not isinstance(task_profile, Mapping) or not isinstance(execution_plan, Mapping):
+        return False
+    recommended_steps = execution_plan.get("recommended_steps")
+    validation_steps = execution_plan.get("validation_steps")
+    return (
+        bool(str(task_profile.get("task_goal") or "").strip())
+        and bool(str(task_profile.get("expected_output") or "").strip())
+        and isinstance(recommended_steps, list)
+        and any(isinstance(step, str) and step.strip() for step in recommended_steps)
+        and isinstance(validation_steps, list)
+        and any(isinstance(step, str) and step.strip() for step in validation_steps)
+        and bool(str(report.get("execution_suggestion") or "").strip())
+    )
+
+
+def _execution_decision(
+    report: Mapping[str, Any],
+    evaluation: Mapping[str, Any],
+) -> dict[str, Any]:
+    if not _has_executable_final_script(report):
+        return {
+            "should_execute": False,
+            "score_band": "blocked",
+            "reason": "No content-complete final_script_report was generated.",
+        }
+    score = evaluation.get("overall_score")
+    if isinstance(score, float):
+        score = round(score)
+    if not isinstance(score, int):
+        return {
+            "should_execute": False,
+            "score_band": "blocked",
+            "reason": "Writer judge did not return judge_overall_score.",
+        }
+    if score > 85:
+        band = "high"
+        reason = "Writer score is above 85; execute the approved final_scripts."
+    elif score >= 70:
+        band = "medium"
+        reason = "Writer score is 70-85; execute final_scripts cautiously."
+    else:
+        band = "low"
+        reason = (
+            "Writer score is below 70; preserve the team implementation's "
+            "low-score cautious execution policy."
+        )
+    return {"should_execute": True, "score_band": band, "reason": reason}
 
 
 def _aggregate_usage(calls: Sequence[_WriterModelCall]) -> dict[str, int]:
@@ -816,68 +890,139 @@ def _judgment_to_dict(judgment: Any) -> dict[str, Any]:
     raise TypeError("external Writer completeness result is not serializable")
 
 
-def _validated_report(
+def _extract_report(
     bindings: WriterCoreBindings,
     raw_response: str,
 ) -> dict[str, Any]:
     report, _, _, _ = bindings.extract_report_metadata_from_stdout(raw_response)
-    if not isinstance(report, dict):
-        raise ValueError("Writer report is not a parseable JSON object")
-    missing = [key for key in REQUIRED_REPORT_KEYS if key not in report]
-    if missing:
-        raise ValueError(
-            "Writer report is missing required top-level fields: " + ", ".join(missing)
-        )
-    return report
+    return dict(report) if isinstance(report, dict) else {}
 
 
 async def generate_writer_handoff(
     *,
     api_client: SupportsStreamingMessages,
     model: str,
+    actor_model: str | None = None,
     workspace_root: Path,
     query: str,
     live_tool_schemas: Sequence[Mapping[str, Any]],
     context: Mapping[str, Any] | None = None,
     max_tokens: int = 4096,
 ) -> WriterHandoffResult:
-    """Draft, review, locally repair, and compile one Writer v3 handoff."""
+    """Run the team Writer v1 Actor -> Writer judge -> final_scripts protocol."""
 
     bindings = load_writer_core(workspace_root)
+    resolved_actor_model = actor_model or model
     request_text = build_writer_request_text(
         bindings,
         query=query,
         live_tool_schemas=live_tool_schemas,
         context=context,
     )
-    qwen_no_thinking = {"enable_thinking": False} if "qwen" in model.casefold() else None
-    qwen_json_review = (
-        {
-            "enable_thinking": False,
-            "response_format": {"type": "json_object"},
-        }
-        if "qwen" in model.casefold()
-        else None
-    )
     started = time.perf_counter()
     draft_call = await _run_writer_model_call(
         api_client=api_client,
-        model=model,
-        phase="draft",
+        model=resolved_actor_model,
+        phase="actor_script_generation",
         system_prompt=(
-            "Generate only the requested Writer Harness JSON report. "
-            "Do not execute the task and do not claim to have called tools."
+            "You are the Actor Harness script-generation stage. Generate only "
+            "the strict JSON execution script requested by the user prompt. "
+            "Do not execute the business task and do not call tools."
         ),
         user_prompt=request_text,
         max_tokens=max_tokens,
-        extra_body=qwen_no_thinking,
     )
     calls = [draft_call]
-    raw_response = draft_call.text
-    report = _validated_report(bindings, raw_response)
+    initial_actor_output = draft_call.text
+    report = _extract_report(bindings, initial_actor_output)
+    deterministic_writer = bindings.writer_harness_class(_StaticLLM(""))
+    online_judgment = deterministic_writer.judge_online_completeness(
+        initial_actor_output,
+        round_index=1,
+    )
+    judge_system, judge_user = _build_judge_request(
+        bindings,
+        query=query,
+        report=report,
+        actor_output=initial_actor_output,
+        online_judgment=online_judgment,
+    )
+    judge_call = await _run_writer_model_call(
+        api_client=api_client,
+        model=model,
+        phase="writer_sufficiency_judge",
+        system_prompt=judge_system,
+        user_prompt=judge_user,
+        max_tokens=max_tokens,
+        extra_body={"thinking": {"type": "disabled"}},
+    )
+    calls.append(judge_call)
+    evaluation = _parse_judge_response(
+        bindings,
+        response=judge_call.text,
+        query=query,
+        actor_output=initial_actor_output,
+        report=report,
+        online_judgment=online_judgment,
+    )
+
+    regeneration_performed = False
+    regeneration_raw_response: str | None = None
+    actor_output = initial_actor_output
+    if not online_judgment.is_complete:
+        regeneration_performed = True
+        retry_call = await _run_writer_model_call(
+            api_client=api_client,
+            model=resolved_actor_model,
+            phase="actor_script_regeneration",
+            system_prompt=(
+                "You are the Actor Harness script-generation stage. Revise only "
+                "the existing execution script and return strict JSON. Do not "
+                "execute the business task and do not call tools."
+            ),
+            user_prompt=request_text
+            + _retry_instruction(online_judgment.missing_sections),
+            max_tokens=max_tokens,
+        )
+        calls.append(retry_call)
+        regeneration_raw_response = retry_call.text
+        actor_output = retry_call.text
+        report = _extract_report(bindings, actor_output)
+        online_judgment = deterministic_writer.judge_online_completeness(
+            actor_output,
+            round_index=2,
+        )
+        judge_system, judge_user = _build_judge_request(
+            bindings,
+            query=query,
+            actor_output=actor_output,
+            report=report,
+            online_judgment=online_judgment,
+        )
+        retry_judge_call = await _run_writer_model_call(
+            api_client=api_client,
+            model=model,
+            phase="writer_sufficiency_judge_after_regeneration",
+            system_prompt=judge_system,
+            user_prompt=judge_user,
+            max_tokens=max_tokens,
+            extra_body={"thinking": {"type": "disabled"}},
+        )
+        calls.append(retry_judge_call)
+        evaluation = _parse_judge_response(
+            bindings,
+            response=retry_judge_call.text,
+            query=query,
+            actor_output=actor_output,
+            report=report,
+            online_judgment=online_judgment,
+        )
+
     live_names = tuple(
         name
-        for name, _ in (_tool_name_and_description(schema) for schema in live_tool_schemas)
+        for name, _ in (
+            _tool_name_and_description(schema) for schema in live_tool_schemas
+        )
         if name
     )
     final_report, core_match, aligned = _prepare_report_for_handoff(
@@ -885,164 +1030,49 @@ async def generate_writer_handoff(
         query=query,
         report=report,
         live_tool_names=live_names,
-        raw_response=raw_response,
+        raw_response=actor_output,
     )
-    initial_audit = _audit_report(bindings, final_report, query=query)
-    final_audit = initial_audit
-    review_raw_response = ""
-    revision_raw_response: str | None = None
-    semantic_result: dict[str, Any] = {
-        "passed": bool(initial_audit.get("passed", True)),
-        "defects": [],
-        "summary": "Legacy report path: independent Writer v3 review was not requested.",
-    }
-    revision_performed = False
-    revision_accepted = False
-    selected_schemas: list[dict[str, Any]] = []
-    live_tool_catalog = [
-        record for schema in live_tool_schemas if (record := _tool_prompt_record(schema))
-    ]
-    review_enabled = _supports_v3_review(bindings, report)
-    if review_enabled:
-        language = str(bindings.detect_language(query))
-        selected_schemas = _selected_tool_schemas(final_report, live_tool_schemas)
-        review_system, review_user = bindings.build_writer_review_request(
-            query=query,
-            report=final_report,
-            deterministic_audit=initial_audit,
-            selected_tool_schemas=selected_schemas,
-            live_tool_catalog=live_tool_catalog,
-            language=language,
-        )
-        review_call = await _run_writer_model_call(
-            api_client=api_client,
-            model=model,
-            phase="review",
-            system_prompt=str(review_system),
-            user_prompt=str(review_user),
-            max_tokens=max(512, min(max_tokens, 2048)),
-            effort="low",
-            extra_body=qwen_json_review,
-        )
-        calls.append(review_call)
-        review_raw_response = review_call.text
-        try:
-            semantic_result = dict(bindings.parse_writer_review(review_raw_response))
-        except (TypeError, ValueError) as exc:
-            semantic_result = {
-                "passed": bool(initial_audit.get("passed")),
-                "defects": [],
-                "summary": "Semantic review response could not be parsed.",
-                "parse_error": str(exc),
-            }
-        should_revise = bool(
-            bindings.writer_review_requires_revision(
-                initial_audit,
-                semantic_result,
-            )
-        )
-        if should_revise:
-            patch_errors = semantic_result.get("patch_errors")
-            patch_operations = semantic_result.get("patch_operations")
-            if patch_errors:
-                semantic_result["revision_error"] = (
-                    "Semantic review returned invalid patch operations: "
-                    + "; ".join(str(error) for error in patch_errors)
-                )
-            elif not isinstance(patch_operations, list) or not patch_operations:
-                semantic_result["revision_error"] = (
-                    "Semantic review found contract defects without an applicable patch"
-                )
-            else:
-                revision_performed = True
-                try:
-                    patched_report = bindings.apply_writer_review_patch(
-                        final_report,
-                        patch_operations,
-                    )
-                    candidate_report, candidate_core, candidate_aligned = (
-                        _prepare_report_for_handoff(
-                            bindings,
-                            query=query,
-                            report=patched_report,
-                            raw_response=review_raw_response,
-                            live_tool_names=live_names,
-                        )
-                    )
-                    candidate_audit = _audit_report(
-                        bindings,
-                        candidate_report,
-                        query=query,
-                    )
-                    semantic_result["candidate_contract_audit"] = candidate_audit
-                    if not bool(candidate_audit.get("passed")):
-                        raise ValueError(
-                            "Locally patched Writer report did not pass the "
-                            "deterministic contract audit"
-                        )
-                    final_report = candidate_report
-                    core_match = candidate_core
-                    aligned = candidate_aligned
-                    final_audit = candidate_audit
-                    revision_accepted = True
-                except (TypeError, ValueError) as exc:
-                    semantic_result["revision_error"] = str(exc)
-
-    writer = bindings.writer_harness_class(_NoLLM())
-    judgment = _judgment_to_dict(
-        writer.judge_online_completeness(
-            json.dumps(final_report, ensure_ascii=False),
-            round_index=2 if revision_performed else 1,
-        )
-    )
-    actor_contract = (
-        bindings.prepare_actor_prompt_handoff(final_report)
-        if callable(bindings.prepare_actor_prompt_handoff)
-        else copy.deepcopy(final_report)
-    )
-    semantic_review = {
-        "performed": review_enabled,
-        "selected_tool_names": [
-            _tool_name_and_description(schema)[0] for schema in selected_schemas
-        ],
-        "initial_contract_audit": initial_audit,
-        "result": semantic_result,
-        "revision_performed": revision_performed,
-        "revision_accepted": revision_accepted,
-        "revision_mode": "review_patch_local" if review_enabled else "none",
-        "final_contract_audit": final_audit,
-        "usage_by_phase": {call.phase: dict(call.usage) for call in calls},
-        "phase_metrics": {
-            call.phase: {
-                **dict(call.usage),
-                "duration_seconds": call.duration_seconds,
-                "stop_reason": call.stop_reason,
-            }
-            for call in calls
-        },
+    execution_decision = _execution_decision(final_report, evaluation)
+    judgment = _judgment_to_dict(online_judgment)
+    actor_contract = copy.deepcopy(final_report)
+    phase_metrics = {
+        call.phase: {
+            **dict(call.usage),
+            "duration_seconds": call.duration_seconds,
+            "stop_reason": call.stop_reason,
+        }
+        for call in calls
     }
     retries = tuple(event for call in calls for event in call.retry_events)
-    writer_mode = "external_writer_harness_v3" if review_enabled else "external_writer_harness_v2"
+    score = int(evaluation.get("overall_score", 0) or 0)
     return WriterHandoffResult(
-        schema_version=3 if review_enabled else 2,
-        writer_mode=writer_mode,
+        schema_version=1,
+        writer_mode="team_writer_harness_v1",
+        writer_source_version="group_writer_v1",
+        actor_model=resolved_actor_model,
         writer_model=model,
+        query=query,
         source_report=report,
         final_report=final_report,
         actor_contract=actor_contract,
-        raw_response=raw_response,
+        actor_harness_output=actor_output,
+        raw_response=actor_output,
         core_online_completeness=judgment,
+        judge_completeness_evaluation=evaluation,
+        judge_overall_score=score,
         core_capability_match=core_match,
         aligned_capability_match=aligned,
+        execution_decision=execution_decision,
         live_tool_names=live_names,
         usage=_aggregate_usage(calls),
         retry_events=retries,
         duration_seconds=round(time.perf_counter() - started, 6),
         request_sha256=_combined_call_hash(calls, include_responses=False),
         response_sha256=_combined_call_hash(calls, include_responses=True),
-        semantic_review=semantic_review,
-        review_raw_response=review_raw_response,
-        revision_raw_response=revision_raw_response,
+        regeneration_performed=regeneration_performed,
+        initial_actor_harness_output=initial_actor_output,
+        regeneration_raw_response=regeneration_raw_response,
+        phase_metrics=phase_metrics,
         model_request_count=len(calls),
     )
 

@@ -31,6 +31,7 @@ from openharness.engine.stream_events import (
     AssistantTextDelta,
     AssistantTurnComplete,
     CompactProgressEvent,
+    DirectorEventEmitted,
     ErrorEvent,
     StatusEvent,
     StreamEvent,
@@ -136,7 +137,11 @@ class MaxTurnsExceeded(RuntimeError):
 
 @dataclass
 class QueryContext:
-    """Context shared across a query run."""
+    """Context shared across a query run.
+
+    ``director`` 是可选的执行前保障器。它在工具参数校验完成后、权限检查
+    前接收调用上下文，可放行、阻断或替换工具；为空时维持既有执行行为。
+    """
 
     api_client: SupportsStreamingMessages
     tool_registry: ToolRegistry
@@ -153,6 +158,7 @@ class QueryContext:
     max_turns: int | None = 200
     hook_executor: HookExecutor | None = None
     tool_metadata: dict[str, object] | None = None
+    director: object | None = None
 
 
 def _append_capped_unique(bucket: list[Any], value: Any, *, limit: int) -> None:
@@ -831,6 +837,8 @@ async def run_query(
                     content=f"Tool {tc.name} failed: {type(exc).__name__}: {exc}",
                     is_error=True,
                 )
+            for director_event in _director_stream_events(context, tc.id, tc.name):
+                yield director_event, None
             yield ToolExecutionCompleted(
                 tool_name=tc.name,
                 output=result.content,
@@ -870,6 +878,8 @@ async def run_query(
                 tool_results.append(result)
 
             for tc, result in zip(tool_calls, tool_results):
+                for director_event in _director_stream_events(context, tc.id, tc.name):
+                    yield director_event, None
                 yield ToolExecutionCompleted(
                     tool_name=tc.name,
                     output=result.content,
@@ -890,6 +900,13 @@ async def _execute_tool_call(
     tool_use_id: str,
     tool_input: dict[str, object],
 ) -> ToolResultBlock:
+    """执行单次模型工具调用，并在真实副作用前运行可选 Director 预检。
+
+    参数 ``tool_name``、``tool_use_id``、``tool_input`` 分别来自模型的
+    ToolUseBlock。未知工具优先允许 Director 通过备案 MCP 替换；已注册工具
+    则先按原规则校验参数，再交由 Director 决定是否继续。无论 Director 是否
+    启用，OpenHarness 的权限检查都始终位于真实 ``tool.execute`` 之前。
+    """
     if context.hook_executor is not None:
         pre_hooks = await context.hook_executor.execute(
             HookEvent.PRE_TOOL_USE,
@@ -906,12 +923,42 @@ async def _execute_tool_call(
 
     tool = context.tool_registry.get(tool_name)
     if tool is None:
-        log.warning("unknown tool: %s", tool_name)
-        return ToolResultBlock(
-            tool_use_id=tool_use_id,
-            content=f"Unknown tool: {tool_name}",
-            is_error=True,
-        )
+        if context.director is not None:
+            from director_harness import DirectorRequest
+
+            director_decision = await context.director.preflight(
+                DirectorRequest(
+                    tool_name=tool_name,
+                    tool_input=tool_input,
+                    parsed_input=None,
+                    cwd=context.cwd,
+                    tool_registry=context.tool_registry,
+                    tool_metadata=context.tool_metadata,
+                    missing_tool=True,
+                    tool_use_id=tool_use_id,
+                )
+            )
+            if director_decision.action == "replace":
+                replacement_name = director_decision.tool_name or tool_name
+                replacement_input = director_decision.tool_input or tool_input
+                replacement_tool = context.tool_registry.get(replacement_name)
+                if replacement_tool is not None:
+                    tool_name = replacement_name
+                    tool_input = replacement_input
+                    tool = replacement_tool
+            elif director_decision.action == "deny":
+                return ToolResultBlock(
+                    tool_use_id=tool_use_id,
+                    content=director_decision.reason or f"Director blocked {tool_name}",
+                    is_error=True,
+                )
+        if tool is None:
+            log.warning("unknown tool: %s", tool_name)
+            return ToolResultBlock(
+                tool_use_id=tool_use_id,
+                content=f"Unknown tool: {tool_name}",
+                is_error=True,
+            )
 
     try:
         parsed_input = tool.input_model.model_validate(tool_input)
@@ -922,6 +969,45 @@ async def _execute_tool_call(
             content=f"Invalid input for {tool_name}: {exc}",
             is_error=True,
         )
+
+    if context.director is not None:
+        from director_harness import DirectorRequest
+
+        director_decision = await context.director.preflight(
+            DirectorRequest(
+                tool_name=tool_name,
+                tool_input=tool_input,
+                parsed_input=parsed_input,
+                cwd=context.cwd,
+                tool_registry=context.tool_registry,
+                tool_metadata=context.tool_metadata,
+                tool_use_id=tool_use_id,
+            )
+        )
+        if director_decision.action == "deny":
+            return ToolResultBlock(
+                tool_use_id=tool_use_id,
+                content=director_decision.reason or f"Director blocked {tool_name}",
+                is_error=True,
+            )
+        if director_decision.action == "replace":
+            tool_name = director_decision.tool_name or tool_name
+            tool_input = director_decision.tool_input or tool_input
+            tool = context.tool_registry.get(tool_name)
+            if tool is None:
+                return ToolResultBlock(
+                    tool_use_id=tool_use_id,
+                    content=f"Director replacement tool is unavailable: {tool_name}",
+                    is_error=True,
+                )
+            try:
+                parsed_input = tool.input_model.model_validate(tool_input)
+            except Exception as exc:
+                return ToolResultBlock(
+                    tool_use_id=tool_use_id,
+                    content=f"Invalid input for Director replacement {tool_name}: {exc}",
+                    is_error=True,
+                )
 
     # Normalize common tool inputs before permission checks so path rules apply
     # consistently across built-in tools that use `file_path`, `path`, or
@@ -995,6 +1081,13 @@ async def _execute_tool_call(
         is_error=result.is_error,
         result_metadata=dict(result.metadata or {}),
     )
+    if context.director is not None:
+        context.director.observe_result(
+            tool_name,
+            tool_result.is_error,
+            context.tool_metadata,
+            tool_use_id,
+        )
     _record_tool_carryover(
         context,
         tool_name=tool_name,
@@ -1016,6 +1109,31 @@ async def _execute_tool_call(
             },
         )
     return tool_result
+
+
+def _director_stream_events(
+    context: QueryContext,
+    tool_use_id: str,
+    requested_tool_name: str,
+):
+    """将指定工具调用新增的 Director 事件转换为引擎流事件。"""
+    if context.director is None:
+        return
+    from director_harness.events import public_event_payload
+
+    for event in context.director.events_for_tool_use(tool_use_id):
+        payload = public_event_payload(event)
+        yield DirectorEventEmitted(
+            event=str(payload["event"]),
+            tool_name=str(payload["tool_name"]),
+            requested_tool_name=requested_tool_name,
+            status=str(payload["status"]),
+            detail=str(payload["detail"]),
+            session_id=str(payload["session_id"]),
+            tool_use_id=str(payload["tool_use_id"]),
+            data=payload["data"],
+            timestamp=payload.get("timestamp"),
+        )
 
 
 def _resolve_permission_file_path(

@@ -1,0 +1,2 @@
+openai>=1.0.0
+openharness-ai == 0.1.9

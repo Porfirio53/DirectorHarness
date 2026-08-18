@@ -2,7 +2,7 @@
 set -euo pipefail
 
 workspace_root="${1:-/home/patton/projects/harness}"
-env_file="${2:-${workspace_root}/tau3-bench/.env}"
+env_file="${2:-${workspace_root}/.env}"
 run_root="${3:-${workspace_root}/results/runs/original-full}"
 openharness_root="${workspace_root}/OpenHarness"
 

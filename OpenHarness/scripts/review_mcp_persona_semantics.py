@@ -22,6 +22,7 @@ from openai import AsyncOpenAI
 from openharness.rehearsal.mcp_persona_rehearsal import (
     VERIFIED52_PROTOCOL_ID,
     VERIFIED52_WRITER_ARM,
+    VERIFIED52_WRITER_DIRECTOR_ARM,
     VERIFIED_TASK_IDS,
     verified52_experiment_arm,
 )
@@ -216,7 +217,9 @@ def _review_config(
         "schema_version": 1,
         "result_label": RESULT_LABEL,
         "dataset_id": (
-            "mcp-persona-verified52-writer-full"
+            "mcp-persona-verified52-writer-director-full"
+            if source_arm == VERIFIED52_WRITER_DIRECTOR_ARM
+            else "mcp-persona-verified52-writer-full"
             if source_arm == VERIFIED52_WRITER_ARM
             else "mcp-persona-verified52"
             if source_arm is not None
@@ -349,7 +352,7 @@ def _validate_verified52_source(
     arm = verified52_experiment_arm(run_config)
     if arm is None or run_config.get("tasks") != list(task_ids):
         raise ValueError(
-            "Verified52 source run is not an exact Original or Writer 52x2 arm"
+            "Verified52 source run is not an exact Original, Writer, or Writer+Director 52x2 arm"
         )
     if (
         run_config.get("protocol_id") != VERIFIED52_PROTOCOL_ID
@@ -364,10 +367,16 @@ def _validate_verified52_source(
         raise ValueError(
             "Verified52 source baseline is incomplete; resume the Agent run first"
         )
-    if arm == VERIFIED52_WRITER_ARM:
+    if arm in {VERIFIED52_WRITER_ARM, VERIFIED52_WRITER_DIRECTOR_ARM}:
         writer_gate = baseline_summary.get("writer_smoke_gate")
         if not isinstance(writer_gate, Mapping) or writer_gate.get("passed") is not True:
             raise ValueError("Writer Verified52 source did not pass the Writer gate")
+    if arm == VERIFIED52_WRITER_DIRECTOR_ARM:
+        director_gate = baseline_summary.get("director_smoke_gate")
+        if not isinstance(director_gate, Mapping) or director_gate.get("passed") is not True:
+            raise ValueError(
+                "Writer+Director Verified52 source did not pass the Director gate"
+            )
     return str(arm)
 
 
@@ -1007,7 +1016,9 @@ async def async_main(args: argparse.Namespace) -> int:
         "schema_version": 1,
         "result_scope": RESULT_LABEL,
         "dataset_id": (
-            "mcp-persona-verified52-writer-full"
+            "mcp-persona-verified52-writer-director-full"
+            if source_arm == VERIFIED52_WRITER_DIRECTOR_ARM
+            else "mcp-persona-verified52-writer-full"
             if source_arm == VERIFIED52_WRITER_ARM
             else "mcp-persona-verified52"
             if source_arm is not None

@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 
 from .models import ExecutionResult, InteractionMode, WriterHarnessReport
 
@@ -147,6 +148,16 @@ class OpenHarnessCLIActorExecutor(ActorHarnessExecutor):
         if self.openharness_src:
             existing_pythonpath = env.get("PYTHONPATH")
             env["PYTHONPATH"] = self.openharness_src if not existing_pythonpath else f"{self.openharness_src}{os.pathsep}{existing_pythonpath}"
+        if env.get("DIRECTOR_HARNESS_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}:
+            project_root = Path(__file__).resolve().parents[1]
+            existing_pythonpath = env.get("PYTHONPATH")
+            python_paths = [str(project_root)]
+            if existing_pythonpath:
+                python_paths.append(existing_pythonpath)
+            env["PYTHONPATH"] = os.pathsep.join(python_paths)
+        # #region debug-point B:openharness-invocation
+        exec("try:\n import json as _j, urllib.request as _u, time as _t\n _p='.dbg/multiturn-permissions.env'; _c=open(_p, encoding='utf-8').read(); _url=next((x.split('=',1)[1] for x in _c.splitlines() if x.startswith('DEBUG_SERVER_URL=')), 'http://127.0.0.1:7777/event'); _sid=next((x.split('=',1)[1] for x in _c.splitlines() if x.startswith('DEBUG_SESSION_ID=')), 'multiturn-permissions'); _u.urlopen(_u.Request(_url, data=_j.dumps({'sessionId': _sid, 'runId': 'pre-fix', 'hypothesisId': 'B', 'location': 'actor_harness.py:150', 'msg': '[DEBUG] OpenHarness subprocess prepared', 'data': {'cwd': os.getcwd(), 'dryRun': self.dry_run, 'commandHead': command[:2], 'hasOpenHarnessSrc': bool(self.openharness_src)}, 'ts': int(_t.time() * 1000)}).encode(), headers={'Content-Type': 'application/json'}), timeout=1).read()\nexcept: pass")
+        # #endregion
         try:
             completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
             actor_report, report_source, report_origin, report_transport = extract_report_metadata_from_stdout(completed.stdout)

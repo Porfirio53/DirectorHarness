@@ -19,7 +19,12 @@ from openharness.tools.base import ToolRegistry
 
 
 class QueryEngine:
-    """Owns conversation history and the tool-aware model loop."""
+    """Owns conversation history and the tool-aware model loop.
+
+    ``director`` 参数为可选会话级保障器。QueryEngine 不解释其业务逻辑，
+    仅将同一实例传递给每次 ``QueryContext``，从而保证工具缓存与事件日志在
+    同一会话中连续有效。
+    """
 
     def __init__(
         self,
@@ -39,7 +44,13 @@ class QueryEngine:
         hook_executor: HookExecutor | None = None,
         tool_metadata: dict[str, object] | None = None,
         settings: Settings | None = None,
+        director: object | None = None,
     ) -> None:
+        """创建查询引擎。
+
+        ``director`` 为 ``None`` 时完全兼容原有调用；提供实例后，每次工具
+        调用都会由 ``query._execute_tool_call`` 在执行前进行预检。
+        """
         self._api_client = api_client
         self._tool_registry = tool_registry
         self._permission_checker = permission_checker
@@ -56,6 +67,7 @@ class QueryEngine:
         self._hook_executor = hook_executor
         self._tool_metadata = tool_metadata or {}
         self._settings = settings
+        self._director = director
         self._messages: list[ConversationMessage] = []
         self._cost_tracker = CostTracker()
 
@@ -225,7 +237,11 @@ class QueryEngine:
         return False
 
     async def submit_message(self, prompt: str | ConversationMessage) -> AsyncIterator[StreamEvent]:
-        """Append a user message and execute the query loop."""
+        """Append a user message and execute the query loop.
+
+        本方法创建的 QueryContext 会携带当前会话的 Director，使一条用户消息
+        内及后续消息中的工具调用共用同一份已验证工具缓存。
+        """
         user_message = (
             prompt
             if isinstance(prompt, ConversationMessage)
@@ -260,6 +276,7 @@ class QueryEngine:
             ask_user_prompt=self._ask_user_prompt,
             hook_executor=self._hook_executor,
             tool_metadata=self._tool_metadata,
+            director=self._director,
         )
         query_messages = list(self._messages)
         coordinator_context = self._build_coordinator_context_message()
@@ -278,7 +295,10 @@ class QueryEngine:
             self._schedule_auto_dream()
 
     async def continue_pending(self, *, max_turns: int | None = None) -> AsyncIterator[StreamEvent]:
-        """Continue an interrupted tool loop without appending a new user message."""
+        """Continue an interrupted tool loop without appending a new user message.
+
+        续跑同样传递原 Director 实例，避免工具结果回灌后丢失预检缓存。
+        """
         self._prepare_session_memory()
         self._messages = sanitize_conversation_messages(self._messages)
         context = QueryContext(
@@ -297,6 +317,7 @@ class QueryEngine:
             ask_user_prompt=self._ask_user_prompt,
             hook_executor=self._hook_executor,
             tool_metadata=self._tool_metadata,
+            director=self._director,
         )
         async for event, usage in run_query(context, self._messages):
             if usage is not None:

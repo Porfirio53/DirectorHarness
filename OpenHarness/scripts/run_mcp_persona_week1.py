@@ -26,6 +26,7 @@ from openharness.engine.messages import ConversationMessage
 from openharness.engine.query import MaxTurnsExceeded, QueryContext, run_query
 from openharness.engine.stream_events import (
     AssistantTurnComplete,
+    DirectorEventEmitted,
     ErrorEvent,
     StatusEvent,
     ToolExecutionCompleted,
@@ -42,7 +43,7 @@ from openharness.rehearsal.mcp_persona import (
 )
 from openharness.rehearsal.mcp_persona_rehearsal import (
     VERIFIED52_PROTOCOL_ID,
-    VERIFIED52_WRITER_ARM,
+    VERIFIED52_WRITER_DIRECTOR_ARM,
     VERIFIED_TASK_IDS,
     is_verified52_original_config,
     is_verified52_writer_config,
@@ -177,7 +178,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--experiment-stage",
-        choices=("baseline", "paired-smoke", "writer-full"),
+        choices=(
+            "baseline",
+            "paired-smoke",
+            "writer-full",
+            "writer-director-full",
+        ),
         default="baseline",
         help=(
             "Paired smoke permits one repeat over a subset; writer-full locks one "
@@ -199,13 +205,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--writer-archive",
         type=Path,
-        help="Original writer_harness_demo.zip used for byte-level verification",
+        help="Team writer_director_0812.zip used for byte-level verification",
     )
     parser.add_argument(
         "--writer-model",
         help="Writer report model; defaults to --model",
     )
     parser.add_argument("--writer-max-tokens", type=int, default=4096)
+    parser.add_argument(
+        "--director-harness-enabled",
+        action="store_true",
+        help="Enable the team Director preflight before each tool execution",
+    )
+    parser.add_argument(
+        "--director-mcp-catalog",
+        type=Path,
+        help="Team-approved MCP catalog used only when Director is enabled",
+    )
     parser.add_argument("--max-tasks", type=int, default=0)
     parser.add_argument(
         "--resume",
@@ -530,10 +546,24 @@ def _build_run_config(
         and getattr(args, "openharness_mode", "original") == "writer_harness"
         and (getattr(args, "writer_model", None) or args.model) == args.model
     )
+    writer_director_full_selection = (
+        tuple(task_ids) == VERIFIED_TASK_IDS
+        and args.repeats == 2
+        and args.language == "en"
+        and args.tool_scope == "server"
+        and args.chain_guidance is False
+        and getattr(args, "experiment_stage", "baseline")
+        == "writer-director-full"
+        and getattr(args, "openharness_mode", "original") == "writer_harness"
+        and getattr(args, "director_harness_enabled", False) is True
+        and (getattr(args, "writer_model", None) or args.model) == args.model
+    )
     writer_full_verified52 = writer_full_selection and args.repeats == 2
     runtime_fingerprint = execution_runtime_fingerprint(version_manifest)
     experiment_arm = (
-        "writer_harness"
+        VERIFIED52_WRITER_DIRECTOR_ARM
+        if getattr(args, "director_harness_enabled", False)
+        else "writer_harness"
         if getattr(args, "openharness_mode", "original") == "writer_harness"
         else "original"
     )
@@ -544,9 +574,13 @@ def _build_run_config(
             "mcp-persona-verified52"
             if formal_verified52
             else (
-                "mcp-persona-verified52-writer-full"
-                if writer_full_selection
-                else "mcp-persona-development-run"
+                "mcp-persona-verified52-writer-director-full"
+                if writer_director_full_selection
+                else (
+                    "mcp-persona-verified52-writer-full"
+                    if writer_full_selection
+                    else "mcp-persona-development-run"
+                )
             )
         ),
         "formal_verified52": formal_verified52,
@@ -560,9 +594,16 @@ def _build_run_config(
             if writer_full_selection
             else {}
         ),
+        **(
+            {"writer_director_full_verified52": True}
+            if writer_director_full_selection
+            else {}
+        ),
         "protocol_id": (
             VERIFIED52_PROTOCOL_ID
-            if formal_verified52 or writer_full_verified52
+            if formal_verified52
+            or writer_full_verified52
+            or writer_director_full_selection
             else None
         ),
         "experiment_arm": experiment_arm,
@@ -592,6 +633,15 @@ def _build_run_config(
         "writer_max_tokens": (
             getattr(args, "writer_max_tokens", 4096)
             if getattr(args, "openharness_mode", "original") == "writer_harness"
+            else None
+        ),
+        "director_harness_enabled": bool(
+            getattr(args, "director_harness_enabled", False)
+        ),
+        "director_mcp_catalog": (
+            str(args.director_mcp_catalog.resolve())
+            if getattr(args, "director_harness_enabled", False)
+            and args.director_mcp_catalog is not None
             else None
         ),
         "mcp_persona_root": str(root),
@@ -668,6 +718,11 @@ def _summary_for_results(
     writer_events_complete_count = 0
     writer_input_tokens = 0
     writer_output_tokens = 0
+    director_required = run_config.get("director_harness_enabled") is True
+    director_enabled_count = 0
+    director_checked_count = 0
+    director_ordered_count = 0
+    director_event_count = 0
 
     for task_id, trial in expected_slots:
         row = by_key.get((task_id, trial))
@@ -730,6 +785,20 @@ def _summary_for_results(
                 writer_output_tokens += int(
                     writer_usage.get("output_tokens", 0) or 0
                 )
+        director = row.get("director")
+        if director_required and isinstance(director, Mapping):
+            director_enabled_count += director.get("enabled") is True
+            validation = director.get("event_validation")
+            if isinstance(validation, Mapping):
+                director_checked_count += (
+                    validation.get("all_tool_calls_checked") is True
+                )
+                director_ordered_count += (
+                    validation.get("director_before_tool_completion") is True
+                )
+                director_event_count += int(
+                    validation.get("event_count", 0) or 0
+                )
 
     result_count = sum(key in by_key for key in expected_slots)
     expected_results = len(expected_slots)
@@ -747,9 +816,16 @@ def _summary_for_results(
         and writer_state_isolated_count == expected_results
         and writer_events_complete_count == expected_results
     )
+    director_gate_passed = (
+        director_required
+        and run_complete
+        and director_enabled_count == expected_results
+        and director_checked_count == expected_results
+        and director_ordered_count == expected_results
+    )
     analysis_ready = run_complete and (
         not writer_required or writer_gate_passed
-    )
+    ) and (not director_required or director_gate_passed)
     verified52_arm = verified52_experiment_arm(run_config)
     verified52_ready = analysis_ready and verified52_arm is not None
     baseline_ready = verified52_ready
@@ -778,6 +854,9 @@ def _summary_for_results(
         ),
         "formal_verified52": formal_verified52,
         "writer_full_verified52": is_verified52_writer_config(run_config),
+        "writer_director_full_verified52": (
+            run_config.get("writer_director_full_verified52") is True
+        ),
         "model": run_config.get("model"),
         "config_sha256": config_sha256,
         "chain_guidance_enabled": run_config.get("chain_guidance"),
@@ -812,12 +891,21 @@ def _summary_for_results(
                 "output_tokens": writer_output_tokens,
             },
         },
+        "director_smoke_gate": {
+            "required": director_required,
+            "expected_trials": expected_results if director_required else 0,
+            "enabled_trials": director_enabled_count,
+            "all_tool_calls_checked": director_checked_count,
+            "preflight_order_passed": director_ordered_count,
+            "event_count": director_event_count,
+            "passed": director_gate_passed,
+        },
         "mean_duration_seconds": _numeric_mean(durations),
         "run_complete": run_complete,
         "analysis_ready": analysis_ready,
         "verified52_ready": verified52_ready,
         "formal_original_baseline": (
-            verified52_ready and verified52_arm != VERIFIED52_WRITER_ARM
+            verified52_ready and verified52_arm == "original"
         ),
         "baseline_ready": baseline_ready,
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -857,8 +945,7 @@ def summarize_existing_output(output_dir: Path) -> dict[str, Any]:
 def _discover_env_file(args: argparse.Namespace, openharness_root: Path) -> Path | None:
     candidates = [
         args.env_file,
-        openharness_root / ".env",
-        openharness_root.parent / "tau3-bench" / ".env",
+        openharness_root.parent / ".env",
     ]
     return next((value.resolve() for value in candidates if value and value.is_file()), None)
 
@@ -957,6 +1044,75 @@ def _merge_raw_outputs(
                 break
 
 
+def _pre_director_input_rejection(call: Mapping[str, Any]) -> bool:
+    """Return whether OpenHarness rejected a call before Director preflight."""
+
+    if call.get("is_error") is not True:
+        return False
+    tool_name = str(call.get("tool_name") or "")
+    output = str(call.get("output") or "").lstrip()
+    return bool(tool_name) and output.startswith(f"Invalid input for {tool_name}:")
+
+
+def _director_event_validation(
+    *,
+    enabled: bool,
+    tool_calls: Sequence[Mapping[str, Any]],
+    trajectory_events: Sequence[Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    if not enabled:
+        return None
+    director_events = [
+        event
+        for event in trajectory_events
+        if event.get("type") == "director_event"
+    ]
+    rejected_calls = [
+        call for call in tool_calls if _pre_director_input_rejection(call)
+    ]
+    eligible_tool_call_count = len(tool_calls) - len(rejected_calls)
+    tool_use_ids = {
+        str(event.get("tool_use_id") or "")
+        for event in director_events
+        if str(event.get("tool_use_id") or "")
+    }
+    director_seen = 0
+    completed_seen = 0
+    director_before_completion = True
+    for event in trajectory_events:
+        event_type = event.get("type")
+        if event_type == "director_event":
+            director_seen += 1
+        elif event_type == "tool_completed":
+            if _pre_director_input_rejection(event):
+                continue
+            completed_seen += 1
+            if director_seen < completed_seen:
+                director_before_completion = False
+    return {
+        "enabled": True,
+        "event_count": len(director_events),
+        "checked_tool_use_count": len(tool_use_ids),
+        "tool_call_count": len(tool_calls),
+        "all_tool_calls_checked": len(tool_use_ids) == eligible_tool_call_count,
+        "director_before_tool_completion": director_before_completion,
+        "event_types": sorted(
+            {
+                str(event.get("event") or "")
+                for event in director_events
+                if event.get("event")
+            }
+        ),
+        "statuses": sorted(
+            {
+                str(event.get("status") or "")
+                for event in director_events
+                if event.get("status")
+            }
+        ),
+    }
+
+
 async def _run_trial(
     *,
     task: Mapping[str, Any],
@@ -1001,6 +1157,18 @@ async def _run_trial(
         )
 
     manager = McpClientManager(configs)
+    director = None
+    director_log_file: Path | None = None
+    if args.director_harness_enabled:
+        from director_harness import DirectorHarness
+        from director_harness.catalog import McpCatalog
+        from director_harness.events import DirectorEventLog
+
+        director_log_file = trial_dir / "director-events.jsonl"
+        director = DirectorHarness(
+            catalog=McpCatalog.from_file(args.director_mcp_catalog),
+            event_log=DirectorEventLog(director_log_file),
+        )
     tool_calls: list[dict[str, Any]] = []
     messages = [
         ConversationMessage.from_user_text(
@@ -1044,6 +1212,7 @@ async def _run_trial(
             writer_handoff = await generate_writer_handoff(
                 api_client=api_client,  # type: ignore[arg-type]
                 model=args.writer_model or args.model,
+                actor_model=args.model,
                 workspace_root=args.writer_workspace_root,
                 query=_task_prompt(task, chain_guidance=False),
                 live_tool_schemas=registry.to_api_schema(),
@@ -1054,15 +1223,10 @@ async def _run_trial(
                 raise RuntimeError(
                     "Writer planning changed the MCP state before actor execution"
                 )
-            if (
-                writer_handoff.core_online_completeness.get(
-                    "completeness_level"
-                )
-                == "incomplete"
-            ):
+            if not writer_handoff.execution_decision.get("should_execute"):
                 raise RuntimeError(
-                    "Writer report failed the original deterministic "
-                    "completeness gate"
+                    "Writer did not produce a content-complete final_scripts "
+                    "execution input"
                 )
             writer_recorder = WriterEventRecorder(
                 writer_handoff,
@@ -1078,7 +1242,11 @@ async def _run_trial(
             system_prompt=system_prompt,
             max_tokens=args.max_tokens,
             max_turns=args.max_turns,
-            tool_metadata={},
+            tool_metadata={
+                "session_id": f"mcp-persona-{task_id}-trial-{trial}",
+                "mcp_manager": manager,
+            },
+            director=director,
         )
         if not errors:
             trial_timeout = asyncio.timeout(args.trial_timeout)
@@ -1102,6 +1270,21 @@ async def _run_trial(
                             }
                             tool_calls.append(call)
                             trajectory_events.append({"type": "tool_started", **call})
+                        elif isinstance(event, DirectorEventEmitted):
+                            trajectory_events.append(
+                                {
+                                    "type": "director_event",
+                                    "event": event.event,
+                                    "tool_name": event.tool_name,
+                                    "requested_tool_name": event.requested_tool_name,
+                                    "status": event.status,
+                                    "detail": event.detail,
+                                    "session_id": event.session_id,
+                                    "tool_use_id": event.tool_use_id,
+                                    "timestamp": event.timestamp,
+                                    "data": event.data or {},
+                                }
+                            )
                         elif isinstance(event, ToolExecutionCompleted):
                             if writer_recorder is not None:
                                 writer_recorder.action_completed(
@@ -1186,6 +1369,11 @@ async def _run_trial(
         if writer_recorder is not None
         else None
     )
+    director_validation = _director_event_validation(
+        enabled=args.director_harness_enabled,
+        tool_calls=tool_calls,
+        trajectory_events=trajectory_events,
+    )
     result = {
         "schema_version": 1,
         "result_scope": RESULT_LABEL,
@@ -1208,12 +1396,7 @@ async def _run_trial(
         "writer": {
             "enabled": args.openharness_mode == "writer_harness",
             "mandatory_passed": writer_handoff is not None,
-            "policy": (
-                "reviewed_pre_execution_contract_v3_observe_only"
-                if writer_handoff is not None
-                and writer_handoff.writer_mode == "external_writer_harness_v3"
-                else "static_pre_execution_contract_v2_observe_only"
-            ),
+            "policy": "team_writer_v1_scored_final_scripts_observe_only",
             "planning_state_before": writer_state_before,
             "planning_state_after": writer_state_after,
             "planning_state_unchanged": (
@@ -1229,6 +1412,21 @@ async def _run_trial(
             "handoff": (
                 writer_handoff.to_dict()
                 if writer_handoff is not None
+                else None
+            ),
+        },
+        "director": {
+            "enabled": args.director_harness_enabled,
+            "policy": "team_director_pre_tool_execution_v1",
+            "event_validation": director_validation,
+            "event_count": (
+                int(director_validation.get("event_count", 0))
+                if isinstance(director_validation, Mapping)
+                else 0
+            ),
+            "log_file": (
+                str(director_log_file)
+                if director_log_file is not None
                 else None
             ),
         },
@@ -1261,10 +1459,12 @@ async def async_main(args: argparse.Namespace) -> int:
     if args.repeats < 2 and args.experiment_stage not in {
         "paired-smoke",
         "writer-full",
+        "writer-director-full",
     }:
         raise SystemExit("--repeats must be at least 2 for the week-one reset gate")
     if (
-        args.experiment_stage in {"paired-smoke", "writer-full"}
+        args.experiment_stage
+        in {"paired-smoke", "writer-full", "writer-director-full"}
         and args.chain_guidance
     ):
         raise SystemExit(f"{args.experiment_stage} requires --no-chain-guidance")
@@ -1278,10 +1478,22 @@ async def async_main(args: argparse.Namespace) -> int:
     writer_archive = (
         args.writer_archive.resolve()
         if args.writer_archive is not None
-        else workspace_root / "writer_harness_demo.zip"
+        else workspace_root / "docs" / "writer_director_0812.zip"
     )
     args.writer_workspace_root = workspace_root
     args.writer_archive = writer_archive
+    if args.director_harness_enabled:
+        if str(workspace_root) not in sys.path:
+            sys.path.insert(0, str(workspace_root))
+        if args.director_mcp_catalog is None:
+            raise SystemExit(
+                "--director-mcp-catalog is required when Director is enabled"
+            )
+        args.director_mcp_catalog = args.director_mcp_catalog.resolve()
+        if not args.director_mcp_catalog.is_file():
+            raise SystemExit(
+                f"Director MCP catalog not found: {args.director_mcp_catalog}"
+            )
 
     env_file = _discover_env_file(args, openharness_root)
     if env_file is not None:
@@ -1308,17 +1520,34 @@ async def async_main(args: argparse.Namespace) -> int:
         task_ids = task_ids[: args.max_tasks]
     if not task_ids:
         raise SystemExit("No MCP-Persona tasks were selected")
-    if args.experiment_stage == "writer-full":
+    if args.experiment_stage in {"writer-full", "writer-director-full"}:
         if tuple(task_ids) != VERIFIED_TASK_IDS:
-            raise SystemExit("writer-full requires the exact canonical Verified52 task list")
-        if args.repeats != 1:
+            raise SystemExit(
+                f"{args.experiment_stage} requires the exact canonical Verified52 task list"
+            )
+        if args.experiment_stage == "writer-full" and args.repeats != 1:
             raise SystemExit("writer-full is locked to exactly one repeat")
+        if args.experiment_stage == "writer-director-full" and args.repeats != 2:
+            raise SystemExit("writer-director-full is locked to exactly two repeats")
         if args.language != "en" or args.tool_scope != "server":
-            raise SystemExit("writer-full requires --language en and --tool-scope server")
+            raise SystemExit(
+                f"{args.experiment_stage} requires --language en and --tool-scope server"
+            )
         if args.openharness_mode != "writer_harness":
-            raise SystemExit("writer-full requires --openharness-mode writer_harness")
+            raise SystemExit(
+                f"{args.experiment_stage} requires --openharness-mode writer_harness"
+            )
         if (args.writer_model or args.model) != args.model:
-            raise SystemExit("writer-full requires Writer and actor to use the same model")
+            raise SystemExit(
+                f"{args.experiment_stage} requires Writer and actor to use the same model"
+            )
+        if (
+            args.experiment_stage == "writer-director-full"
+            and not args.director_harness_enabled
+        ):
+            raise SystemExit(
+                "writer-director-full requires --director-harness-enabled"
+            )
 
     version_manifest = build_version_manifest(
         openharness_root,
@@ -1333,13 +1562,35 @@ async def async_main(args: argparse.Namespace) -> int:
             writer_archive,
             include_support_files=False,
         )
+        if not writer_deployment.ok:
+            raise SystemExit(
+                "deployed Writer does not exactly match the team archive: "
+                f"missing={list(writer_deployment.missing_files)}, "
+                f"mismatched={list(writer_deployment.mismatched_files)}"
+            )
         version_manifest["writer_harness"] = writer_deployment.to_dict()
-        version_manifest["writer_harness"]["source_lock_enforced"] = False
+        version_manifest["writer_harness"]["source_lock_enforced"] = True
         tracked = version_manifest.get("file_sha256")
         if isinstance(tracked, dict):
             for relative in (
                 "src/openharness/rehearsal/writer_handoff.py",
                 "scripts/run_mcp_persona_week1.py",
+            ):
+                path = openharness_root / relative
+                tracked[str(path.resolve())] = hashlib.sha256(
+                    path.read_bytes()
+                ).hexdigest()
+    if args.director_harness_enabled:
+        tracked = version_manifest.get("file_sha256")
+        if isinstance(tracked, dict):
+            for path in sorted((workspace_root / "director_harness").glob("*.py")):
+                tracked[str(path.resolve())] = hashlib.sha256(
+                    path.read_bytes()
+                ).hexdigest()
+            for relative in (
+                "src/openharness/engine/query.py",
+                "src/openharness/engine/query_engine.py",
+                "src/openharness/engine/stream_events.py",
             ):
                 path = openharness_root / relative
                 tracked[str(path.resolve())] = hashlib.sha256(
@@ -1365,6 +1616,12 @@ async def async_main(args: argparse.Namespace) -> int:
         "writer_model": (
             args.writer_model or args.model
             if args.openharness_mode == "writer_harness"
+            else None
+        ),
+        "director_harness_enabled": bool(args.director_harness_enabled),
+        "director_mcp_catalog": (
+            str(args.director_mcp_catalog)
+            if args.director_harness_enabled
             else None
         ),
     }
@@ -1511,6 +1768,7 @@ async def async_main(args: argparse.Namespace) -> int:
         "formal_verified52": baseline_summary["formal_verified52"],
         "baseline_ready": baseline_summary["baseline_ready"],
         "writer_smoke_gate": baseline_summary["writer_smoke_gate"],
+        "director_smoke_gate": baseline_summary["director_smoke_gate"],
         "official_evaluator_runnable": all(
             value.get("runnable") for value in official_probe.values()
         ),
@@ -1533,9 +1791,13 @@ async def async_main(args: argparse.Namespace) -> int:
         f"(ready={baseline_summary['baseline_ready']})"
     )
     writer_gate = baseline_summary["writer_smoke_gate"]
+    director_gate = baseline_summary["director_smoke_gate"]
     complete = baseline_summary["run_complete"] and (
         args.openharness_mode != "writer_harness"
         or writer_gate["passed"] is True
+    ) and (
+        not args.director_harness_enabled
+        or director_gate["passed"] is True
     )
     return 0 if complete else 2
 

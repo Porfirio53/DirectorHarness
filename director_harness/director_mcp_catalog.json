@@ -1,0 +1,41 @@
+{
+  "mcp_candidates": [
+    {
+      "name": "pdf-reader",
+      "capabilities": [
+        "pdf",
+        "read_pdf",
+        "extract_pdf_text",
+        "pdf_metadata",
+        "pdf_page_count",
+        "pdf_images"
+      ],
+      "tool_aliases": [
+        "read_pdf",
+        "extract_pdf_text",
+        "read_pdf_metadata",
+        "extract_pdf_images"
+      ],
+      "scope": "local",
+      "risk": "read_only_with_optional_network_input",
+      "approval": "approved_for_local_path_reading",
+      "source": {
+        "repository": "https://github.com/sylphxltd/pdf-reader-mcp",
+        "package": "@sylphx/pdf-reader-mcp",
+        "version": "1.3.0",
+        "license": "MIT",
+        "runtime": "Node.js >= 22",
+        "verified_tool": "read_pdf",
+        "restriction": "Director 仅应传入 sources[].path，不应传入 sources[].url"
+      },
+      "config": {
+        "type": "stdio",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@sylphx/pdf-reader-mcp@1.3.0"
+        ]
+      }
+    }
+  ]
+}

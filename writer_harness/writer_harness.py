@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from .llm_clients import LLMClient
 from .models import DifficultyProfile, ExecutionPlan, JudgeCompletenessEvaluation, JudgeFieldScore, OnlineCompletenessJudgment, TaskProfile, WriterHarnessReport
-from .prompts import detect_language, get_judge_completeness_system_prompt
+from .prompts import (
+    MULTITURN_PLAN_DECISION_SYSTEM_PROMPT_EN,
+    MULTITURN_PLAN_DECISION_SYSTEM_PROMPT_ZH,
+    detect_language,
+    get_judge_completeness_system_prompt,
+)
 import json
 
 class WriterHarness:
@@ -19,6 +24,26 @@ class WriterHarness:
         """
 
         self.llm_client = llm_client
+
+    def judge_multiturn_plan_transition(
+        self,
+        user_query: str,
+        history_context: str,
+        previous_plan: dict | None,
+    ) -> dict:
+        language = detect_language(user_query)
+        system_prompt = MULTITURN_PLAN_DECISION_SYSTEM_PROMPT_ZH if language == "zh" else MULTITURN_PLAN_DECISION_SYSTEM_PROMPT_EN
+        user_prompt = json.dumps(
+            {
+                "history_context": history_context,
+                "previous_plan": previous_plan or {},
+                "current_user_query": user_query,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        raw = self.llm_client.complete(system_prompt, user_prompt)
+        return self._parse_json_object(raw, "多轮计划编排判断")
 
     def judge_online_completeness(self, actor_harness_output: str, round_index: int = 1) -> OnlineCompletenessJudgment:
         """快速判断演员 Harness 当前输出是否已经具备完整剧本结构。
@@ -47,12 +72,17 @@ class WriterHarness:
             "expected_output": self._contains_any(lowered, ["expected_output", "output", "产出", "输出"]),
             "success_criteria": self._contains_any(lowered, ["success_criteria", "success criteria", "成功标准", "验证标准"]),
             "known_conditions": self._contains_any(lowered, ["known_conditions", "known conditions", "已知条件"]),
-            "unknown_or_risk": self._contains_any(lowered, ["unknown_conditions", "missing_tools", "risk", "风险", "未知条件", "缺失工具"]),
+            "unknown_or_risk": self._contains_any(lowered, ["unknown_conditions", "missing_tools", "missing_tool_requirements", "risk", "风险", "未知条件", "缺失工具", "缺失工具需求"]),
+            "missing_tools": self._contains_any(lowered, ["missing_tools", "缺失工具"]),
+            "missing_tool_requirements": self._contains_any(lowered, ["missing_tool_requirements", "缺失工具需求"]),
+            "resolution_strategies": self._contains_any(lowered, ["resolution_strategies", "解决策略", "补全策略"]),
             "recommended_steps": self._contains_any(lowered, ["recommended_steps", "steps", "next step", "建议步骤", "执行步骤"]),
             "validation_steps": self._contains_any(lowered, ["validation_steps", "validation", "verify", "验证步骤", "校验"]),
             "judgment_rationale": self._contains_any(lowered, ["judgment_rationale", "rationale", "依据", "原因"]),
             "explicit_suggestion": self._contains_any(lowered, ["execution_suggestion", "execute", "cautious_execute", "re_generate_scripts", "执行", "谨慎执行"]),
         }
+        structured_checks = self._check_plan_tool_linkage(text)
+        checks.update(structured_checks)
 
         matched_checks = [name for name, ok in checks.items() if ok]
         missing_checks = [name for name, ok in checks.items() if not ok]
@@ -83,6 +113,72 @@ class WriterHarness:
             next_action=next_action,
             round_index=round_index,
         )
+
+    def _check_plan_tool_linkage(self, raw: str) -> dict[str, bool]:
+        try:
+            report = self._parse_json_object(raw, "演员 Harness 剧本")
+        except ValueError:
+            return {
+                "execution_plan_structure": False,
+                "execution_plan_tool_linkage": False,
+                "missing_tool_step_linkage": False,
+            }
+
+        difficulty_profile = report.get("difficulty_profile")
+        execution_plan = report.get("execution_plan")
+        if not isinstance(difficulty_profile, dict) or not isinstance(execution_plan, dict):
+            return {
+                "execution_plan_structure": False,
+                "execution_plan_tool_linkage": False,
+                "missing_tool_step_linkage": False,
+            }
+
+        recommended_steps = execution_plan.get("recommended_steps")
+        validation_steps = execution_plan.get("validation_steps")
+        available_tools = difficulty_profile.get("available_tools", [])
+        missing_tools = difficulty_profile.get("missing_tools", [])
+        requirements = difficulty_profile.get("missing_tool_requirements", [])
+        structure_ok = all(
+            isinstance(value, list) and all(isinstance(item, str) and item.strip() for item in value)
+            for value in [recommended_steps, validation_steps]
+        ) and bool(recommended_steps) and bool(validation_steps)
+        if not structure_ok:
+            return {
+                "execution_plan_structure": False,
+                "execution_plan_tool_linkage": False,
+                "missing_tool_step_linkage": False,
+            }
+
+        normalized_steps = [self._normalize_linkage_text(step) for step in recommended_steps]
+        references = [str(tool).strip() for tool in available_tools if str(tool).strip()]
+        requirement_steps: dict[str, list[str]] = {}
+        for requirement in requirements if isinstance(requirements, list) else []:
+            if not isinstance(requirement, dict):
+                continue
+            missing_tool = str(requirement.get("missing_tool", "")).strip()
+            sub_steps = requirement.get("required_for_steps", [])
+            if missing_tool and isinstance(sub_steps, list):
+                requirement_steps[missing_tool] = [str(step).strip() for step in sub_steps if str(step).strip()]
+
+        direct_or_decomposed = all(
+            any(self._normalize_linkage_text(reference) in step for reference in references)
+            or any(self._normalize_linkage_text(sub_step) == step for sub_steps in requirement_steps.values() for sub_step in sub_steps)
+            for step in normalized_steps
+        )
+        missing_links_ok = all(
+            missing_tool in requirement_steps
+            and any(self._normalize_linkage_text(sub_step) in normalized_steps for sub_step in requirement_steps[missing_tool])
+            for missing_tool in missing_tools if isinstance(missing_tool, str) and missing_tool.strip()
+        )
+        return {
+            "execution_plan_structure": True,
+            "execution_plan_tool_linkage": direct_or_decomposed,
+            "missing_tool_step_linkage": missing_links_ok,
+        }
+
+    @staticmethod
+    def _normalize_linkage_text(value: str) -> str:
+        return " ".join(value.lower().split())
 
     def judge_scripts_content(
         self,

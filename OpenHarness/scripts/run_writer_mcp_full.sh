@@ -8,7 +8,7 @@ if [[ "${1:-}" == "--check-only" ]]; then
 fi
 
 workspace_root="${1:-/home/patton/projects/harness}"
-env_file="${2:-${workspace_root}/tau3-bench/.env}"
+env_file="${2:-${workspace_root}/.env}"
 result_root="${3:-${workspace_root}/results/runs/writer-full/.repeat-set-01}"
 openharness_root="${workspace_root}/OpenHarness"
 mcp_root="${workspace_root}/MCP-Persona"
@@ -54,7 +54,7 @@ fi
   --experiment-stage writer-full \
   --openharness-mode writer_harness \
   --writer-workspace-root "${workspace_root}" \
-  --writer-archive "${workspace_root}/writer_harness_demo.zip" \
+  --writer-archive "${workspace_root}/docs/writer_director_0812.zip" \
   --writer-model "${model}" \
   --writer-max-tokens 4096 \
   --model "${model}" \

@@ -64,6 +64,8 @@ def _adapter_parser(subparsers: Any) -> None:
     parser.add_argument("--writer-workspace-root", type=Path)
     parser.add_argument("--writer-model")
     parser.add_argument("--writer-max-tokens", type=int, default=4096)
+    parser.add_argument("--director-harness-enabled", action="store_true")
+    parser.add_argument("--director-mcp-catalog", type=Path)
 
 
 def _add_source_arguments(parser: argparse.ArgumentParser) -> None:
@@ -118,6 +120,16 @@ def _add_source_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--writer-archive", type=Path)
     parser.add_argument("--writer-model")
     parser.add_argument("--writer-max-tokens", type=int, default=4096)
+    parser.add_argument(
+        "--director-harness-enabled",
+        action="store_true",
+        help="Enable the team Director preflight before each tool execution",
+    )
+    parser.add_argument(
+        "--director-mcp-catalog",
+        type=Path,
+        help="Team-approved MCP catalog used only when Director is enabled",
+    )
 
 
 def _run_parser(subparsers: Any) -> None:
@@ -183,17 +195,23 @@ def _writer_deployment(
     archive = (
         _resolve(args.writer_archive, invocation_dir)
         if args.writer_archive is not None
-        else workspace_root / "writer_harness_demo.zip"
+        else workspace_root / "docs" / "writer_director_0812.zip"
     )
     verification = verify_writer_deployment(
         workspace_root,
         archive,
         include_support_files=False,
     )
+    if not verification.ok:
+        raise ValueError(
+            "deployed Writer does not exactly match the team archive: "
+            f"missing={list(verification.missing_files)}, "
+            f"mismatched={list(verification.mismatched_files)}"
+        )
     args.writer_workspace_root = workspace_root
     args.writer_archive = archive
     result = dict(verification.to_dict())
-    result["source_lock_enforced"] = False
+    result["source_lock_enforced"] = True
     return result
 
 
@@ -210,6 +228,14 @@ def _run_adapter(args: argparse.Namespace) -> int:
             print(f"env file not found: {env_file}", file=sys.stderr)
             return 20
         load_dotenv(env_file, override=True)
+    if args.director_harness_enabled:
+        project_root = (
+            args.writer_workspace_root.resolve()
+            if args.writer_workspace_root is not None
+            else Path(__file__).resolve().parents[2]
+        )
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
 
     config = HarnessBenchRoundConfig(
         workspace=args.workspace,
@@ -229,6 +255,8 @@ def _run_adapter(args: argparse.Namespace) -> int:
         writer_workspace_root=args.writer_workspace_root,
         writer_model=args.writer_model,
         writer_max_tokens=args.writer_max_tokens,
+        director_harness_enabled=args.director_harness_enabled,
+        director_mcp_catalog=args.director_mcp_catalog,
     )
     try:
         result = asyncio.run(execute_harnessbench_round(config))
@@ -294,8 +322,12 @@ def _file_sha256(path: Path) -> str:
 def _source_hashes(openharness_root: Path) -> dict[str, str]:
     relative_paths = (
         "scripts/run_openharness_harnessbench.py",
+        "src/openharness/engine/query.py",
+        "src/openharness/engine/query_engine.py",
+        "src/openharness/engine/stream_events.py",
         "src/openharness/rehearsal/harnessbench_runtime.py",
         "src/openharness/rehearsal/writer_handoff.py",
+        "src/openharness/ui/app.py",
         "src/openharness/ui/runtime.py",
     )
     return {
@@ -643,6 +675,36 @@ def _writer_gate(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _director_gate(payload: Mapping[str, Any]) -> dict[str, Any]:
+    rounds = _adapter_round_payloads(payload)
+    director_rounds = [value for value in rounds if value.get("director_enabled")]
+    checked = sum(
+        isinstance(value.get("director_event_validation"), Mapping)
+        and value["director_event_validation"].get("all_tool_calls_checked") is True
+        for value in director_rounds
+    )
+    ordered = sum(
+        isinstance(value.get("director_event_validation"), Mapping)
+        and value["director_event_validation"].get(
+            "director_before_tool_completion"
+        )
+        is True
+        for value in director_rounds
+    )
+    return {
+        "adapter_rounds": len(rounds),
+        "director_rounds": len(director_rounds),
+        "all_tool_calls_checked": checked,
+        "preflight_order_passed": ordered,
+        "passed": (
+            bool(rounds)
+            and len(director_rounds) == len(rounds)
+            and checked == len(rounds)
+            and ordered == len(rounds)
+        ),
+    }
+
+
 def _classify_result(payload: Mapping[str, Any]) -> str:
     oracle = payload.get("oracle_result")
     adapter = payload.get("adapter_result")
@@ -685,11 +747,16 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
     total_expected = len(task_ids) * repeats
     full_grading_missing: list[str] = []
     writer_required = run_config.get("openharness_mode") == "writer_harness"
+    director_required = run_config.get("director_harness_enabled") is True
     writer_expected_rounds = 0
     writer_rounds = 0
     writer_mandatory = 0
     writer_isolated = 0
     writer_events_complete = 0
+    director_expected_rounds = 0
+    director_rounds = 0
+    director_checked = 0
+    director_ordered = 0
 
     for repeat in range(1, repeats + 1):
         repeat_dir = output_dir / f"repeat-{repeat:02d}"
@@ -722,6 +789,7 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
                 if grading == "full" and not _full_grading_complete(payload):
                     full_grading_missing.append(f"repeat-{repeat:02d}/{task_id}")
                 writer_gate = _writer_gate(payload)
+                director_gate = _director_gate(payload)
                 if writer_required:
                     writer_expected_rounds += int(
                         writer_gate["adapter_rounds"]
@@ -736,6 +804,17 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
                     writer_events_complete += int(
                         writer_gate["events_complete"]
                     )
+                if director_required:
+                    director_expected_rounds += int(
+                        director_gate["adapter_rounds"]
+                    )
+                    director_rounds += int(director_gate["director_rounds"])
+                    director_checked += int(
+                        director_gate["all_tool_calls_checked"]
+                    )
+                    director_ordered += int(
+                        director_gate["preflight_order_passed"]
+                    )
                 row = {
                     "task_id": task_id,
                     "state": state,
@@ -743,6 +822,9 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
                     "combined_score": combined,
                     "agent_statuses": _adapter_statuses(payload),
                     "writer_gate": writer_gate if writer_required else None,
+                    "director_gate": (
+                        director_gate if director_required else None
+                    ),
                     "result_file": str(result_file),
                 }
             state_counts[state] = state_counts.get(state, 0) + 1
@@ -778,12 +860,21 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
         and writer_isolated == writer_expected_rounds
         and writer_events_complete == writer_expected_rounds
     )
+    director_gate_passed = (
+        director_required
+        and result_count == total_expected
+        and director_expected_rounds > 0
+        and director_rounds == director_expected_rounds
+        and director_checked == director_expected_rounds
+        and director_ordered == director_expected_rounds
+    )
     baseline_ready = (
         total_expected > 0
         and result_count == total_expected
         and failure_count == 0
         and full_complete
         and (not writer_required or writer_gate_passed)
+        and (not director_required or director_gate_passed)
     )
     return {
         "schema_version": 1,
@@ -804,6 +895,14 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
             "planning_state_isolated": writer_isolated,
             "events_complete": writer_events_complete,
             "passed": writer_gate_passed,
+        },
+        "director_smoke_gate": {
+            "required": director_required,
+            "expected_rounds": director_expected_rounds,
+            "director_rounds": director_rounds,
+            "all_tool_calls_checked": director_checked,
+            "preflight_order_passed": director_ordered,
+            "passed": director_gate_passed,
         },
         "baseline_ready": baseline_ready,
         "repeats": repeat_summaries,
@@ -859,6 +958,13 @@ def _build_run_config(
             if writer_deployment is not None
             else None
         ),
+        "director_harness_enabled": bool(args.director_harness_enabled),
+        "director_mcp_catalog": (
+            str(args.director_mcp_catalog.resolve())
+            if args.director_harness_enabled
+            and args.director_mcp_catalog is not None
+            else None
+        ),
         "public_url_mode": args.public_url_mode,
         "grading": dict(grading),
         "harnessbench_git": _git_metadata(harnessbench_root),
@@ -893,6 +999,8 @@ def _prepare_output_dir(
             "openharness_mode",
             "writer_model",
             "writer_max_tokens",
+            "director_harness_enabled",
+            "director_mcp_catalog",
             "public_url_mode",
             "grading",
         )
@@ -938,6 +1046,16 @@ def _run_suite(args: argparse.Namespace) -> int:
         openharness_root=openharness_root,
         invocation_dir=invocation_dir,
     )
+    director_catalog: Path | None = None
+    if args.director_harness_enabled:
+        if args.director_mcp_catalog is None:
+            raise ValueError(
+                "--director-mcp-catalog is required when Director is enabled"
+            )
+        director_catalog = _resolve(args.director_mcp_catalog, invocation_dir)
+        if not director_catalog.is_file():
+            raise ValueError(f"Director MCP catalog not found: {director_catalog}")
+        args.director_mcp_catalog = director_catalog
     manifest, task_ids, manifest_path = _resolve_selection(
         args,
         harnessbench_root,
@@ -967,6 +1085,7 @@ def _run_suite(args: argparse.Namespace) -> int:
     result_metadata = {
         "dataset_id": run_config["dataset_id"],
         "openharness_mode": run_config["openharness_mode"],
+        "director_harness_enabled": run_config["director_harness_enabled"],
         "grading_mode": run_config["grading"]["mode"],
     }
     harness_config = output_dir / "harness.local.json"
@@ -1015,6 +1134,14 @@ def _run_suite(args: argparse.Namespace) -> int:
                 str(args.writer_model or args.model),
                 "--writer-max-tokens",
                 str(args.writer_max_tokens),
+            ]
+        )
+    if args.director_harness_enabled:
+        adapter_args.extend(
+            [
+                "--director-harness-enabled",
+                "--director-mcp-catalog",
+                str(args.director_mcp_catalog),
             ]
         )
     _write_json(
@@ -1185,6 +1312,16 @@ def _run_preflight(args: argparse.Namespace) -> int:
         openharness_root=openharness_root,
         invocation_dir=invocation_dir,
     )
+    director_catalog: Path | None = None
+    if args.director_harness_enabled:
+        if args.director_mcp_catalog is None:
+            raise ValueError(
+                "--director-mcp-catalog is required when Director is enabled"
+            )
+        director_catalog = _resolve(args.director_mcp_catalog, invocation_dir)
+        if not director_catalog.is_file():
+            raise ValueError(f"Director MCP catalog not found: {director_catalog}")
+        args.director_mcp_catalog = director_catalog
     manifest, task_ids, manifest_path = _resolve_selection(
         args,
         harnessbench_root,
@@ -1253,6 +1390,10 @@ def _run_preflight(args: argparse.Namespace) -> int:
             else None
         ),
         "writer_deployment": writer_deployment,
+        "director_harness_enabled": bool(args.director_harness_enabled),
+        "director_mcp_catalog": (
+            str(director_catalog) if director_catalog is not None else None
+        ),
         "public_url_mode": args.public_url_mode,
         "grading": grading,
         "profile": profile_summary,

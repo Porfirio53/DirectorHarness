@@ -298,7 +298,12 @@ async def build_runtime(
     include_project_memory: bool = True,
     autodream_context: dict[str, object] | None = None,
 ) -> RuntimeBundle:
-    """Build the shared runtime for an OpenHarness session."""
+    """Build the shared runtime for an OpenHarness session.
+
+    当 Python 路径可导入 ``director_harness`` 且 ``DIRECTOR_HARNESS_ENABLED``
+    为真值时，本函数创建一个会话级 Director 并注入 QueryEngine；未安装、未
+    启用或导入失败时，运行时自动降级为原有 OpenHarness 行为。
+    """
     settings_overrides: dict[str, Any] = {
         "model": model,
         "max_turns": max_turns,
@@ -375,6 +380,13 @@ async def build_runtime(
     from uuid import uuid4
 
     session_id = uuid4().hex[:12]
+    director = None
+    try:
+        from director_harness import create_from_environment
+
+        director = create_from_environment()
+    except ImportError:
+        director = None
 
     restored_metadata = {
         "permission_mode": settings.permission.mode.value,
@@ -426,6 +438,7 @@ async def build_runtime(
             "image_generation_config": _resolve_image_generation_config(settings),
             **restored_metadata,
         },
+        director=director,
     )
     if autodream_context is not None:
         engine.tool_metadata["autodream_context"] = autodream_context

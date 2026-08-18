@@ -62,7 +62,9 @@ class WriterThenActorApiClient:
         request: ApiMessageRequest,
     ) -> AsyncIterator[ApiStreamEvent]:
         self.requests.append(request)
-        if not request.tools:
+        if not request.tools and "script-generation stage" in (
+            request.system_prompt or ""
+        ):
             if self.writer_input_injection is not None:
                 self.writer_input_injection.parent.mkdir(parents=True, exist_ok=True)
                 self.writer_input_injection.write_text("delayed update", encoding="utf-8")
@@ -76,20 +78,41 @@ class WriterThenActorApiClient:
                     },
                     "difficulty_profile": {
                         "difficulty": "low",
-                        "available_tools": ["Read", "apply_patch"],
+                        "available_tools": ["read_file", "write_file"],
                         "missing_tools": [],
+                        "missing_tool_requirements": [],
                         "known_conditions": ["local workspace"],
                         "unknown_conditions": ["file contents"],
                         "estimated_cost": "small",
                     },
                     "execution_plan": {
                         "pre_execution_thoughts": ["preserve fixtures"],
-                        "recommended_steps": ["read input", "write output"],
+                        "recommended_steps": [
+                            "read_file: read input",
+                            "write_file: write output",
+                        ],
                         "validation_steps": ["verify output"],
                     },
                     "difficulty_judgment": "low",
                     "judgment_rationale": ["local task"],
                     "execution_suggestion": "execute",
+                }
+            )
+        elif not request.tools:
+            text = json.dumps(
+                {
+                    "overall_score": 90,
+                    "planning_score": 90,
+                    "structure_score": 90,
+                    "risk_score": 90,
+                    "clarification_score": 90,
+                    "overall_sufficiency": "sufficient",
+                    "next_action": "execute",
+                    "section_scores": {},
+                    "check_scores": {},
+                    "strengths": ["complete"],
+                    "weaknesses": [],
+                    "rationale": "offline",
                 }
             )
         else:
@@ -105,9 +128,16 @@ class WriterThenActorApiClient:
 
 
 class ScriptedApiClient:
-    def __init__(self, workspace: Path, *, fail_tool: bool = False) -> None:
+    def __init__(
+        self,
+        workspace: Path,
+        *,
+        fail_tool: bool = False,
+        invalid_input: bool = False,
+    ) -> None:
         self.workspace = workspace
         self.fail_tool = fail_tool
+        self.invalid_input = invalid_input
         self.calls = 0
 
     async def stream_message(
@@ -123,17 +153,21 @@ class ScriptedApiClient:
                     ToolUseBlock(
                         id="toolu_linecount",
                         name="bash",
-                        input={
-                            "command": (
-                                "exit 3"
-                                if self.fail_tool
-                                else (
-                                    "mkdir -p out && "
-                                    "wc -l < in/input.txt | tr -d ' ' > out/linecount.txt"
-                                )
-                            ),
-                            "cwd": str(self.workspace),
-                        },
+                        input=(
+                            {}
+                            if self.invalid_input
+                            else {
+                                "command": (
+                                    "exit 3"
+                                    if self.fail_tool
+                                    else (
+                                        "mkdir -p out && "
+                                        "wc -l < in/input.txt | tr -d ' ' > out/linecount.txt"
+                                    )
+                                ),
+                                "cwd": str(self.workspace),
+                            }
+                        ),
                     )
                 ],
             )
@@ -359,6 +393,82 @@ async def test_scripted_agent_completes_deterministic_workspace_task(
 
 
 @pytest.mark.asyncio
+async def test_harnessbench_director_checks_tool_before_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENHARNESS_CONFIG_DIR", str(tmp_path / "config"))
+    workspace_root = Path(__file__).resolve().parents[3]
+    base = _round_config(tmp_path / "sandbox")
+    config = replace(
+        base,
+        director_harness_enabled=True,
+        director_mcp_catalog=(
+            workspace_root / "director_harness" / "director_mcp_catalog.json"
+        ),
+    )
+    (config.workspace / "in" / "input.txt").write_text(
+        "a\nb\n",
+        encoding="utf-8",
+    )
+
+    result = await execute_harnessbench_round(
+        config,
+        api_client=ScriptedApiClient(config.workspace),
+    )
+
+    assert result.status == "completed"
+    assert result.director_enabled is True
+    assert result.director_event_validation is not None
+    assert result.director_event_validation["all_tool_calls_checked"] is True
+    assert result.director_event_validation[
+        "director_before_tool_completion"
+    ] is True
+    assert result.director_events[0]["event"] == "tool_check"
+    assert result.director_events[0]["status"] == "passed"
+    assert result.director_events[0]["tool_use_id"] == "toolu_linecount"
+    assert result.director_log_file is not None
+    assert Path(result.director_log_file).is_file()
+
+
+@pytest.mark.asyncio
+async def test_harnessbench_director_gate_excludes_invalid_tool_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENHARNESS_CONFIG_DIR", str(tmp_path / "config"))
+    workspace_root = Path(__file__).resolve().parents[3]
+    base = _round_config(tmp_path / "sandbox")
+    config = replace(
+        base,
+        director_harness_enabled=True,
+        director_mcp_catalog=(
+            workspace_root / "director_harness" / "director_mcp_catalog.json"
+        ),
+    )
+    (config.workspace / "in" / "input.txt").write_text(
+        "a\nb\n",
+        encoding="utf-8",
+    )
+
+    result = await execute_harnessbench_round(
+        config,
+        api_client=ScriptedApiClient(config.workspace, invalid_input=True),
+    )
+
+    assert result.status == "completed_with_tool_errors"
+    assert result.tool_calls == 1
+    assert result.tool_errors == 1
+    assert result.director_event_validation is not None
+    assert result.director_event_validation["tool_call_count"] == 1
+    assert result.director_event_validation["checked_tool_use_count"] == 0
+    assert result.director_event_validation["all_tool_calls_checked"] is True
+    assert result.director_event_validation[
+        "director_before_tool_completion"
+    ] is True
+
+
+@pytest.mark.asyncio
 async def test_writer_handoff_is_mandatory_no_tool_and_state_isolated(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -375,11 +485,12 @@ async def test_writer_handoff_is_mandatory_no_tool_and_state_isolated(
 
     result = await execute_harnessbench_round(config, api_client=client)
 
-    assert len(client.requests) == 2
+    assert len(client.requests) == 3
     assert client.requests[0].tools == []
-    assert client.requests[1].tools
+    assert client.requests[1].tools == []
+    assert client.requests[2].tools
     assert "Writer Harness pre-execution handoff" in (
-        client.requests[1].system_prompt or ""
+        client.requests[2].system_prompt or ""
     )
     assert result.writer_required is True
     assert result.writer_mandatory_passed is True
@@ -411,7 +522,7 @@ async def test_writer_handoff_tolerates_delayed_benchmark_input(
 
     assert result.status == "completed"
     assert result.writer_state_unchanged is True
-    assert len(client.requests) == 2
+    assert len(client.requests) == 3
 
 
 @pytest.mark.asyncio

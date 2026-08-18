@@ -59,6 +59,7 @@ class DifficultyProfile:
     difficulty: str
     available_tools: list[str] = field(default_factory=list)
     missing_tools: list[str] = field(default_factory=list)
+    missing_tool_requirements: list[dict[str, Any]] = field(default_factory=list)
     known_conditions: list[str] = field(default_factory=list)
     unknown_conditions: list[str] = field(default_factory=list)
     estimated_cost: str = ""

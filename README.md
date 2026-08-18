@@ -38,11 +38,10 @@ Writer 输出的核心对象包括任务画像、难度画像、执行计划、�
 | `OpenHarness/` | Agent 运行时、Writer 接口、正式运行与评分脚本 |
 | `HarnessBench/` | 106 题基准、任务 fixtures 和 Oracle |
 | `MCP-Persona/` | MCP-Persona 任务与模拟服务 |
-| `tau3-bench/` | 环境配置和已有基准依赖；仓库自带的参考数据不属于本项目运行结果 |
+| `tau3-bench/` | 已有基准依赖；仓库自带的参考数据不属于本项目运行结果 |
 | `results/` | 本项目唯一的实验结果目录 |
 | `results/config/` | 全量复跑所需的冻结任务清单和评分规范 |
 | `writer_excute.py` | Writer 在线执行入口 |
-| `开发进度.md` | 最新开发状态、结果和下一步 |
 
 ## 结果目录规范
 
@@ -66,7 +65,7 @@ results/
 
 ## 全量复跑入口
 
-运行前需要准备 `OpenHarness/.venv`、三个源码仓库和 `tau3-bench/.env` 中的模型配置。以下脚本默认运行两轮，并写入 `results/runs/`：
+运行前需要准备 `OpenHarness/.venv`、三个源码仓库，并按根目录 `.env.example` 在根目录 `.env` 中配置模型。以下脚本默认运行两轮，并写入 `results/runs/`：
 
 ```bash
 # Original 对照组（两个基准各两轮，并完成评分）
@@ -96,7 +95,3 @@ bash OpenHarness/scripts/run_writer_full.sh
 5. 原始轨迹和机器可读评分是数字冲突时的最终依据，人工文档不得修改或掩盖失败结果。
 6. 不提交缓存、临时沙箱、临时交付包或本地试跑数据。
 7. 对核心逻辑的后续变更必须有对应测试；仅整理文档和历史产物时不运行无关测试。
-
-## 文档维护规范
-
-`README.md` 作为固定的项目路线与开发规范不再随日常进展修改，以后每次更新只更新 `开发进度.md`。

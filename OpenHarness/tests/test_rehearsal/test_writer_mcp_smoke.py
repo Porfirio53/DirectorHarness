@@ -31,7 +31,9 @@ class WriterThenMcpActorClient:
         request: ApiMessageRequest,
     ) -> AsyncIterator[ApiStreamEvent]:
         self.requests.append(request)
-        if not request.tools:
+        if not request.tools and "script-generation stage" in (
+            request.system_prompt or ""
+        ):
             message = ConversationMessage(
                 role="assistant",
                 content=[
@@ -46,8 +48,11 @@ class WriterThenMcpActorClient:
                                 },
                                 "difficulty_profile": {
                                     "difficulty": "low",
-                                    "available_tools": ["run_mcp"],
+                                    "available_tools": [
+                                        "mcp__lark_mcp__im_v1_chat_list"
+                                    ],
                                     "missing_tools": [],
+                                    "missing_tool_requirements": [],
                                     "known_conditions": ["user context"],
                                     "unknown_conditions": ["live chat data"],
                                     "estimated_cost": "one call",
@@ -57,7 +62,7 @@ class WriterThenMcpActorClient:
                                         "preserve state"
                                     ],
                                     "recommended_steps": [
-                                        "call im_v1_chat_list"
+                                        "mcp__lark_mcp__im_v1_chat_list: list chats"
                                     ],
                                     "validation_steps": [
                                         "verify returned chat"
@@ -71,7 +76,31 @@ class WriterThenMcpActorClient:
                     )
                 ],
             )
-        elif len(self.requests) == 2:
+        elif not request.tools:
+            message = ConversationMessage(
+                role="assistant",
+                content=[
+                    TextBlock(
+                        text=json.dumps(
+                            {
+                                "overall_score": 90,
+                                "planning_score": 90,
+                                "structure_score": 90,
+                                "risk_score": 90,
+                                "clarification_score": 90,
+                                "overall_sufficiency": "sufficient",
+                                "next_action": "execute",
+                                "section_scores": {},
+                                "check_scores": {},
+                                "strengths": ["complete"],
+                                "weaknesses": [],
+                                "rationale": "offline",
+                            }
+                        )
+                    )
+                ],
+            )
+        elif len(self.requests) == 3:
             tool_name = next(
                 str(value["name"])
                 for value in request.tools
@@ -127,6 +156,10 @@ async def test_mcp_writer_handoff_precedes_tools_and_preserves_reset(
         writer_model="offline-writer",
         writer_workspace_root=workspace_root,
         writer_max_tokens=1024,
+        director_harness_enabled=True,
+        director_mcp_catalog=(
+            workspace_root / "director_harness" / "director_mcp_catalog.json"
+        ),
     )
     client = WriterThenMcpActorClient()
 
@@ -140,14 +173,23 @@ async def test_mcp_writer_handoff_precedes_tools_and_preserves_reset(
         task_dir=tmp_path / "task-4",
     )
 
-    assert len(client.requests) == 3
+    assert len(client.requests) == 4
     assert client.requests[0].tools == []
-    assert client.requests[1].tools
+    assert client.requests[1].tools == []
+    assert client.requests[2].tools
     assert result["writer"]["mandatory_passed"] is True
     assert result["writer"]["planning_state_unchanged"] is True
     assert result["writer"]["event_validation"]["events_complete"] is True
+    assert result["director"]["enabled"] is True
+    assert result["director"]["event_validation"]["all_tool_calls_checked"] is True
+    assert result["director"]["event_validation"][
+        "director_before_tool_completion"
+    ] is True
     assert result["state"]["exact_reset"] is True
     event_types = [value["type"] for value in result["events"]]
     assert event_types.index("global_plan_created") < event_types.index(
         "tool_started"
     )
+    assert event_types.index("tool_started") < event_types.index(
+        "director_event"
+    ) < event_types.index("tool_completed")

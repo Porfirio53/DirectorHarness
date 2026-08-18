@@ -83,6 +83,7 @@ VERIFIED_TASK_IDS = (
 VERIFIED52_PROTOCOL_ID = "mcp-persona-verified52-v1"
 VERIFIED52_ORIGINAL_ARM = "original"
 VERIFIED52_WRITER_ARM = "writer_harness"
+VERIFIED52_WRITER_DIRECTOR_ARM = "writer_director"
 NO_PUBLIC_CHECKPOINT_TASK_IDS = (24, 106, 135, 138, 148, 152, 161)
 STEP_WEIGHTS = {
     "milestone_coverage": 0.25,
@@ -185,6 +186,27 @@ def is_verified52_writer_config(run_config: Mapping[str, Any]) -> bool:
     )
 
 
+def is_verified52_writer_director_config(
+    run_config: Mapping[str, Any],
+) -> bool:
+    """Return whether metadata identifies the exact Writer+Director 52x2 arm."""
+
+    return (
+        _has_verified52_task_order(run_config)
+        and run_config.get("repeats") == 2
+        and run_config.get("language") == "en"
+        and run_config.get("tool_scope") == "server"
+        and run_config.get("chain_guidance") is False
+        and run_config.get("experiment_stage") == "writer-director-full"
+        and run_config.get("openharness_mode") == VERIFIED52_WRITER_ARM
+        and run_config.get("director_harness_enabled") is True
+        and run_config.get("dataset_id")
+        == "mcp-persona-verified52-writer-director-full"
+        and run_config.get("writer_director_full_verified52") is True
+        and run_config.get("writer_model") == run_config.get("model")
+    )
+
+
 def verified52_experiment_arm(run_config: Mapping[str, Any]) -> str | None:
     """Return the exact Verified52 experiment arm, or ``None`` for other runs."""
 
@@ -192,6 +214,8 @@ def verified52_experiment_arm(run_config: Mapping[str, Any]) -> str | None:
         return VERIFIED52_ORIGINAL_ARM
     if is_verified52_writer_config(run_config):
         return VERIFIED52_WRITER_ARM
+    if is_verified52_writer_director_config(run_config):
+        return VERIFIED52_WRITER_DIRECTOR_ARM
     return None
 
 

@@ -107,7 +107,7 @@ def build_preflight(
     workspace_root = workspace_root.resolve()
     mcp_root = workspace_root / "MCP-Persona"
     harnessbench_root = workspace_root / "HarnessBench"
-    archive = workspace_root / "writer_harness_demo.zip"
+    archive = workspace_root / "docs" / "writer_director_0812.zip"
     env_file = env_file.resolve()
     result_root = result_root.resolve()
 
@@ -399,8 +399,16 @@ def build_summary(
         for trial in range(1, mcp_repeats + 1)
     }
     mcp_writer_gate = mcp_run.get("writer_smoke_gate")
+    director_required = (
+        mcp_config.get("director_harness_enabled") is True
+        and hb_config.get("director_harness_enabled") is True
+    )
+    mcp_director_gate = mcp_run.get("director_smoke_gate")
     mcp_run_ready = (
-        mcp_config.get("writer_full_verified52") is True
+        (
+            mcp_config.get("writer_full_verified52") is True
+            or mcp_config.get("writer_director_full_verified52") is True
+        )
         and mcp_config.get("repeats") == mcp_repeats
         and mcp_config.get("model") == MODEL
         and mcp_config.get("writer_model") == MODEL
@@ -409,6 +417,13 @@ def build_summary(
         and mcp_run.get("run_complete") is True
         and isinstance(mcp_writer_gate, Mapping)
         and mcp_writer_gate.get("passed") is True
+        and (
+            not director_required
+            or (
+                isinstance(mcp_director_gate, Mapping)
+                and mcp_director_gate.get("passed") is True
+            )
+        )
     )
     semantic_ready = (
         mcp_semantic.get("expected_task_count") == 52
@@ -423,6 +438,7 @@ def build_summary(
     )
 
     hb_writer_gate = hb_run.get("writer_smoke_gate")
+    hb_director_gate = hb_run.get("director_smoke_gate")
     hb_grading = hb_config.get("grading")
     hb_scoring_ready = (
         hb_config.get("dataset_id") == "harnessbench-writer-full-v1"
@@ -437,6 +453,13 @@ def build_summary(
         and hb_run.get("expected_results") == expected_hb_results
         and hb_run.get("result_count") == expected_hb_results
         and hb_run.get("full_grading_complete") is True
+        and (
+            not director_required
+            or (
+                isinstance(hb_director_gate, Mapping)
+                and hb_director_gate.get("passed") is True
+            )
+        )
     )
     hb_writer_gate_passed = (
         isinstance(hb_writer_gate, Mapping)
@@ -456,12 +479,14 @@ def build_summary(
     return {
         "schema_version": 1,
         "result_scope": (
-            f"Writer-enabled {mcp_repeats}-repeat full runs; local OpenHarness-compatible "
+            f"{'Writer+Director' if director_required else 'Writer'}-enabled "
+            f"{mcp_repeats}-repeat full runs; local OpenHarness-compatible "
             "scores, not official remote benchmark submissions"
         ),
         "model": MODEL,
         "writer_model": MODEL,
         "repeats": mcp_repeats,
+        "director_harness_enabled": director_required,
         "all_scoring_complete": (
             mcp_run_ready and semantic_ready and process_ready and hb_scoring_ready
         ),
@@ -473,6 +498,12 @@ def build_summary(
             "run_complete": mcp_run_ready,
             "process_score_complete": process_ready,
             "semantic_score_complete": semantic_ready,
+            "director_gate_passed": (
+                isinstance(mcp_director_gate, Mapping)
+                and mcp_director_gate.get("passed") is True
+            )
+            if director_required
+            else None,
             "final_score": {
                 "name": "local_execution_score",
                 "mean": mcp_run.get("local_score_means", {}).get("execution_score"),
@@ -492,6 +523,12 @@ def build_summary(
             "run_and_full_grading_complete": hb_scoring_ready,
             "execution_gate_passed": hb_run.get("baseline_ready") is True,
             "writer_gate_passed": hb_writer_gate_passed,
+            "director_gate_passed": (
+                isinstance(hb_director_gate, Mapping)
+                and hb_director_gate.get("passed") is True
+            )
+            if director_required
+            else None,
             "execution_failure_count": hb_execution_failure_count,
             "state_counts": dict(hb_state_counts),
             "benchmark_scores_and_resources": _harnessbench_metrics(hb_run),
