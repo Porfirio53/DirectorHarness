@@ -717,6 +717,13 @@ def _classify_result(payload: Mapping[str, Any]) -> str:
     return "completed"
 
 
+def _resume_should_retry(payload: Mapping[str, Any]) -> bool:
+    return _classify_result(payload) in {
+        "openharness_process_failed",
+        "oracle_failed",
+    }
+
+
 def _full_grading_complete(payload: Mapping[str, Any]) -> bool:
     scoring = payload.get("scoring")
     oracle = payload.get("oracle_result")
@@ -1194,12 +1201,20 @@ def _run_suite(args: argparse.Namespace) -> int:
                     raise ValueError(
                         f"result already exists without --resume: {existing_result}"
                     )
-                print(
-                    f"[openharness-harnessbench] repeat {repeat}/{args.repeats} "
-                    f"skipping completed {task_id}",
-                    flush=True,
-                )
-                continue
+                existing_payload = _read_json(existing_result)
+                if _resume_should_retry(existing_payload):
+                    print(
+                        f"[openharness-harnessbench] repeat {repeat}/{args.repeats} "
+                        f"retrying failed {task_id}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"[openharness-harnessbench] repeat {repeat}/{args.repeats} "
+                        f"skipping completed {task_id}",
+                        flush=True,
+                    )
+                    continue
             print(
                 f"[openharness-harnessbench] repeat {repeat}/{args.repeats} "
                 f"starting {task_id}",

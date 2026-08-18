@@ -11,6 +11,7 @@ from scripts.run_openharness_harnessbench import (
     _configure_grading_environment,
     _load_task_manifest,
     _prepare_output_dir,
+    _resume_should_retry,
     _summary_for_output,
 )
 from scripts.redact_harnessbench_artifacts import redact_tree, sensitive_values
@@ -117,6 +118,41 @@ def test_locked_output_resume_and_full_summary(tmp_path: Path) -> None:
     assert summary["state_counts"] == {"completed": 1}
     assert summary["repeats"][0]["outcome_mean"] == 0.8
     assert summary["repeats"][0]["combined_mean"] == 0.6
+
+
+def test_resume_retries_only_infrastructure_failures() -> None:
+    assert _resume_should_retry(
+        {
+            "adapter_result": {"ok": False},
+            "adapter_results": [
+                {"stdout": json.dumps({"status": "openharness_process_failed"})}
+            ],
+            "oracle_result": {},
+        }
+    )
+    assert _resume_should_retry(
+        {
+            "adapter_result": {"ok": True},
+            "adapter_results": [{"stdout": json.dumps({"status": "completed"})}],
+            "oracle_result": {"error": "grading service unavailable"},
+        }
+    )
+    assert not _resume_should_retry(
+        {
+            "adapter_result": {"ok": True},
+            "adapter_results": [
+                {"stdout": json.dumps({"status": "agent_task_failed"})}
+            ],
+            "oracle_result": {},
+        }
+    )
+    assert not _resume_should_retry(
+        {
+            "adapter_result": {"ok": True},
+            "adapter_results": [{"stdout": json.dumps({"status": "completed"})}],
+            "oracle_result": {},
+        }
+    )
 
 
 def test_task_manifest_does_not_lock_git_commit_or_dirty_paths(tmp_path: Path) -> None:

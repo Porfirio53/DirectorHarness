@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
   "PyYAML>=6.0",
   "tomli>=2.0.1; python_version < \"3.11\"",
+  httpx[socks]>=0.27.0
 ]
 
 [tool.setuptools]
