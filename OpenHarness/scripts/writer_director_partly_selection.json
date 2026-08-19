@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "dataset_id": "writer-director-partly-v1",
+  "purpose": "A fixed, non-formal regression subset for Writer v1 plus Director optimization.",
+  "model": "qwen3.6-plus",
+  "repeats": 2,
+  "openharness_mode": "writer_harness",
+  "director_harness_enabled": true,
+  "selection_rule": "Choose tasks where the Writer+Director full run is weaker than Original and tool calls are non-increasing, while retaining distinct failure modes that are actionable in the Writer/Director/Actor execution path.",
+  "mcp_persona": {
+    "task_ids": [19, 65, 36, 10, 1],
+    "tasks": [
+      {
+        "task_id": 19,
+        "query_type": "lark_mcp_single_long",
+        "failure_mode": "Long nine-step Lark chain is truncated after the initial reads; required chat, calendar and notification writes disappear.",
+        "optimization_target": "Preserve a dependency-aware complete plan and make the handoff distinguish required milestones from optional verification.",
+        "original_mean": {"execution": 0.611111, "recall": 0.722222, "sequence": 0.555556, "tool_calls": 23.0, "duration_seconds": 157.274},
+        "writer_director_mean": {"execution": 0.166667, "recall": 0.277778, "sequence": 0.222222, "tool_calls": 2.5, "duration_seconds": 117.274}
+      },
+      {
+        "task_id": 65,
+        "query_type": "notion_single_short",
+        "failure_mode": "The two required Notion mutations are reduced to a delete plus append calls; the required update operation is omitted.",
+        "optimization_target": "Keep one-to-one links between each required step and an exact live tool, including destructive-write follow-up steps.",
+        "original_mean": {"execution": 1.0, "recall": 1.0, "sequence": 1.0, "tool_calls": 12.5, "duration_seconds": 59.487},
+        "writer_director_mean": {"execution": 0.5, "recall": 0.5, "sequence": 0.5, "tool_calls": 6.0, "duration_seconds": 105.521}
+      },
+      {
+        "task_id": 36,
+        "query_type": "xiaohongshu_single_long",
+        "failure_mode": "Authentication/status checks repeat while the publish step is absent in one trial; the five-step chain is not kept intact.",
+        "optimization_target": "Represent authentication as a precondition with a bounded retry budget, then retain publish/like/detail milestones as non-optional.",
+        "original_mean": {"execution": 1.0, "recall": 1.0, "sequence": 1.0, "tool_calls": 11.0, "duration_seconds": 53.417},
+        "writer_director_mean": {"execution": 0.4, "recall": 0.8, "sequence": 0.8, "tool_calls": 7.0, "duration_seconds": 112.75}
+      },
+      {
+        "task_id": 10,
+        "query_type": "lark_mcp_single_long",
+        "failure_mode": "The fan-out notification task loses the calendar lookup and several recipient sends after capability planning compresses the chain.",
+        "optimization_target": "Expand cardinality-sensitive steps explicitly (one send per recipient) and validate completion against the planned recipient set.",
+        "original_mean": {"execution": 0.583333, "recall": 0.666667, "sequence": 0.666667, "tool_calls": 19.0, "duration_seconds": 123.817},
+        "writer_director_mean": {"execution": 0.166667, "recall": 0.583333, "sequence": 0.583333, "tool_calls": 7.0, "duration_seconds": 107.487}
+      },
+      {
+        "task_id": 1,
+        "query_type": "lark_mcp_single_short",
+        "failure_mode": "The calendar/contact/create dependency remains nominally present but loses required evidence and parameter correctness after aggressive call reduction.",
+        "optimization_target": "Carry required identifiers and write parameters from the plan into the next tool input, and block only redundant retries rather than required corrections.",
+        "original_mean": {"execution": 0.666667, "recall": 1.0, "sequence": 0.666667, "semantic_checkpoint": 0.75, "rehearsal_combined": 0.622549, "tool_calls": 15.5, "duration_seconds": 135.111},
+        "writer_director_mean": {"execution": 0.666667, "recall": 0.666667, "sequence": 0.666667, "semantic_checkpoint": 0.25, "rehearsal_combined": 0.220588, "tool_calls": 6.5, "duration_seconds": 131.218}
+      }
+    ]
+  },
+  "harnessbench": {
+    "task_ids": [
+      "086-sql-migration-preflight-rollback",
+      "008-image-recognize",
+      "052-metric-definition-audit",
+      "078-local-api-cursor-retry-ledger",
+      "019-incident-runbook-synthesis"
+    ],
+    "tasks": [
+      {
+        "task_id": "086-sql-migration-preflight-rollback",
+        "title": "Add SQL Migration Preflight Checks and Rollback Safety",
+        "failure_mode": "Writer+Director cuts the tool trace while the oracle loses idempotency/constraint evidence.",
+        "optimization_target": "Make every required deliverable and verification clause a hard plan milestone before execution.",
+        "original_mean": {"outcome": 0.9657, "process": 1.0, "combined": 0.9657, "tool_calls": 19.0, "duration_seconds": 705.244},
+        "writer_director_mean": {"outcome": 0.4464, "process": 1.0, "combined": 0.4464, "tool_calls": 11.0, "duration_seconds": 883.683}
+      },
+      {
+        "task_id": "008-image-recognize",
+        "title": "Inspect Two Local Images And Save Short Answers",
+        "failure_mode": "The Writer plan is much shorter and does not reliably preserve the image-specific inspection and output obligations.",
+        "optimization_target": "Keep multimodal inputs and per-image output cardinality explicit in the Actor handoff without adding speculative calls.",
+        "original_mean": {"outcome": 0.775, "process": 1.0, "combined": 0.775, "tool_calls": 17.5, "duration_seconds": 131.45},
+        "writer_director_mean": {"outcome": 0.595, "process": 1.0, "combined": 0.595, "tool_calls": 6.0, "duration_seconds": 164.532}
+      },
+      {
+        "task_id": "052-metric-definition-audit",
+        "title": "Metric definition audit against dashboard formulas",
+        "failure_mode": "Outcome drops despite nearly unchanged call count, indicating semantic plan/content loss rather than removable retries.",
+        "optimization_target": "Preserve equivalence rules, required fields and final validation text in the Writer final_scripts contract.",
+        "original_mean": {"outcome": 1.0, "process": 1.0, "combined": 1.0, "tool_calls": 6.0, "duration_seconds": 193.584},
+        "writer_director_mean": {"outcome": 0.7509, "process": 0.95, "combined": 0.7103, "tool_calls": 6.0, "duration_seconds": 268.467}
+      },
+      {
+        "task_id": "078-local-api-cursor-retry-ledger",
+        "title": "Local API Cursor Retry Ledger",
+        "failure_mode": "A large reduction in calls is accompanied by missed dataset/ledger evidence in one trial; the retry loop is not reliably retained.",
+        "optimization_target": "Encode pagination, 429/503/410 recovery and checkpoint verification as bounded state transitions, not optional prose.",
+        "original_mean": {"outcome": 0.7778, "process": 0.93335, "combined": 0.72595, "tool_calls": 33.0, "duration_seconds": 374.647},
+        "writer_director_mean": {"outcome": 0.7778, "process": 0.75, "combined": 0.6111, "tool_calls": 11.0, "duration_seconds": 238.304}
+      },
+      {
+        "task_id": "019-incident-runbook-synthesis",
+        "title": "Multi-Source Production Incident Analysis",
+        "failure_mode": "The required incident report is missed in both Writer+Director repeats even though the rest of the artifact set is produced.",
+        "optimization_target": "Preserve cross-file evidence-to-artifact links and add a final oracle-oriented completeness check before stopping.",
+        "original_mean": {"outcome": 0.8575, "process": 1.0, "combined": 0.8575, "tool_calls": 19.5, "duration_seconds": 199.407},
+        "writer_director_mean": {"outcome": 0.825, "process": 0.5, "combined": 0.4125, "tool_calls": 16.5, "duration_seconds": 369.078}
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "dataset_id": "harnessbench-writer-director-partly-v1",
+  "task_count": 5,
+  "tasks": [
+    "086-sql-migration-preflight-rollback",
+    "008-image-recognize",
+    "052-metric-definition-audit",
+    "078-local-api-cursor-retry-ledger",
+    "019-incident-runbook-synthesis"
+  ],
+  "excluded_tasks": []
+}
