@@ -852,10 +852,14 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
     result_count = sum(
         int(repeat_summary["completed_results"]) for repeat_summary in repeat_summaries
     )
-    failure_count = sum(
+    infrastructure_failure_count = sum(
         count
         for state, count in state_counts.items()
-        if state not in {"completed", "pending"}
+        if state in {
+            "harness_process_failed",
+            "openharness_process_failed",
+            "oracle_failed",
+        }
     )
     full_complete = grading != "full" or not full_grading_missing
     writer_gate_passed = (
@@ -878,7 +882,7 @@ def _summary_for_output(output_dir: Path, run_config: Mapping[str, Any]) -> dict
     baseline_ready = (
         total_expected > 0
         and result_count == total_expected
-        and failure_count == 0
+        and infrastructure_failure_count == 0
         and full_complete
         and (not writer_required or writer_gate_passed)
         and (not director_required or director_gate_passed)

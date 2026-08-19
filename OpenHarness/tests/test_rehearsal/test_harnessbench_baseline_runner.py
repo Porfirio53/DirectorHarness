@@ -155,6 +155,41 @@ def test_resume_retries_only_infrastructure_failures() -> None:
     )
 
 
+def test_agent_task_failure_is_a_complete_scored_result(tmp_path: Path) -> None:
+    output_dir = tmp_path / "model-failure"
+    run_config = {
+        "dataset_id": "test-dataset",
+        "tasks": ["001-file"],
+        "repeats": 1,
+        "model": "test-model",
+        "openharness_mode": "original",
+        "grading": {"mode": "outcome-only"},
+    }
+    result_file = (
+        output_dir
+        / "repeat-01/results/openharness-local/test-model/001-file.json"
+    )
+    result_file.parent.mkdir(parents=True)
+    result_file.write_text(
+        json.dumps(
+            {
+                "task_id": "001-file",
+                "adapter_result": {"ok": True},
+                "adapter_results": [
+                    {"stdout": json.dumps({"status": "agent_task_failed"})}
+                ],
+                "oracle_result": {"outcome_score": 0.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = _summary_for_output(output_dir, run_config)
+
+    assert summary["baseline_ready"] is True
+    assert summary["state_counts"] == {"agent_task_failed": 1}
+
+
 def test_task_manifest_does_not_lock_git_commit_or_dirty_paths(tmp_path: Path) -> None:
     manifest_path = tmp_path / "tasks.json"
     manifest_path.write_text(
