@@ -28,6 +28,32 @@ from openharness.api.client import (
 from openharness.engine.messages import ConversationMessage
 
 
+def _load_execution_contract_builder() -> Any:
+    """Load the workspace-local Director contract from script or test entrypoints."""
+
+    try:
+        from director_harness.contract import build_execution_contract
+    except ModuleNotFoundError as exc:
+        if exc.name != "director_harness":
+            raise
+        workspace_root = next(
+            (
+                parent
+                for parent in Path(__file__).resolve().parents
+                if (parent / "director_harness").is_dir()
+            ),
+            None,
+        )
+        if workspace_root is None:
+            raise
+        root_text = str(workspace_root)
+        if root_text not in sys.path:
+            sys.path.insert(0, root_text)
+        from director_harness.contract import build_execution_contract
+
+    return build_execution_contract
+
+
 WRITER_ARCHIVE_PREFIX = "writer_director_0812/writer_harness_demo/"
 WRITER_CORE_FILES = (
     "writer_harness/__init__.py",
@@ -141,6 +167,7 @@ class WriterHandoffResult:
 
     def to_dict(self, *, include_raw_response: bool = True) -> dict[str, Any]:
         value = asdict(self)
+        value["execution_contract"] = self.execution_contract
         if not include_raw_response:
             for key in (
                 "actor_harness_output",
@@ -150,6 +177,28 @@ class WriterHandoffResult:
             ):
                 value.pop(key, None)
         return value
+
+    @property
+    def execution_contract(self) -> dict[str, Any]:
+        """Expose the adapter contract without changing the legacy result shape."""
+        plan = self.final_report.get("execution_plan")
+        milestones = plan.get("milestones") if isinstance(plan, Mapping) else []
+        milestones = milestones if isinstance(milestones, list) else []
+        source = (
+            "writer_legacy_fallback"
+            if any(
+                isinstance(item, Mapping)
+                and str(item.get("id") or "").startswith("fallback-")
+                for item in milestones
+            )
+            else "writer_milestones"
+        )
+        return {
+            "schema_version": 1,
+            "source": source,
+            "live_tool_names": list(self.live_tool_names),
+            "milestones": copy.deepcopy(milestones),
+        }
 
     def prompt_appendix(self) -> str:
         """Return the team Writer v1 final_scripts execution prompt."""
@@ -162,6 +211,7 @@ class WriterHandoffResult:
             "writer_overall_score": self.judge_overall_score,
             "score_band": self.execution_decision.get("score_band"),
             "final_scripts": self.actor_contract,
+            "execution_contract": self.execution_contract,
             "capability_match": self.core_capability_match,
             "exact_recommended_tools": self.aligned_capability_match.get("available_tools", []),
         }
@@ -177,7 +227,10 @@ class WriterHandoffResult:
             + " The original user request and live tool schemas remain authoritative. "
             "Do not regenerate the script. Use final_scripts as the current execution "
             "basis, preserve its risk and validation guidance, and deliver the user-facing "
-            "result without forcing a fixed section template.\n\n"
+            "result without forcing a fixed section template. Each mandatory milestone "
+            "in execution_contract must be represented by the corresponding exact live "
+            "tool when applicable; do not silently drop a required read, write, verify, "
+            "pagination, or fan-out step.\n\n"
             + json.dumps(payload, ensure_ascii=False, indent=2)
         )
 
@@ -190,6 +243,8 @@ class WriterEventRecorder:
     events: list[dict[str, Any]] = field(default_factory=list)
     _next_step: int = 1
     _open_steps: list[tuple[str, str]] = field(default_factory=list)
+    _milestone_calls: dict[str, int] = field(default_factory=dict)
+    _open_milestones: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.events.append(
@@ -205,10 +260,12 @@ class WriterEventRecorder:
                 "regeneration_performed": self.handoff.regeneration_performed,
                 "judge_overall_score": self.handoff.judge_overall_score,
                 "execution_score_band": self.handoff.execution_decision.get("score_band"),
-                "core_completeness_level": self.handoff.core_online_completeness.get(
+                    "core_completeness_level": self.handoff.core_online_completeness.get(
                     "completeness_level"
-                ),
-            }
+                    ),
+                    "execution_contract_source": self.handoff.execution_contract.get("source"),
+                    "execution_milestone_count": len(self.handoff.execution_contract.get("milestones", [])),
+                }
         )
 
     def action_proposed(self, tool_name: str, tool_input: Mapping[str, Any]) -> str:
@@ -218,6 +275,10 @@ class WriterEventRecorder:
             str(value) for value in self.handoff.aligned_capability_match.get("available_tools", [])
         )
         matched = tool_name in recommended or tool_name.startswith("mcp__")
+        milestone_id = self._match_milestone(tool_name)
+        if milestone_id:
+            self._milestone_calls[milestone_id] = self._milestone_calls.get(milestone_id, 0) + 1
+            self._open_milestones[step_id] = milestone_id
         self.events.extend(
             [
                 {
@@ -232,6 +293,8 @@ class WriterEventRecorder:
                     "tool_name": tool_name,
                     "policy": "team_writer_v1_observe_only",
                     "recommended_tool_match": matched,
+                    "milestone_id": milestone_id,
+                    "contract_tool_match": bool(milestone_id),
                     "decision": "allow",
                 },
                 {
@@ -262,11 +325,30 @@ class WriterEventRecorder:
                 "type": "postcondition_checked",
                 "step_id": step_id,
                 "tool_name": tool_name,
+                "milestone_id": self._open_milestones.pop(step_id, None),
                 "policy": "transport_completion_only",
                 "tool_is_error": bool(is_error),
             }
         )
         return step_id
+
+    def _match_milestone(self, tool_name: str) -> str | None:
+        milestones = self.handoff.execution_contract.get("milestones", [])
+        if not isinstance(milestones, list):
+            return None
+        for item in milestones:
+            if not isinstance(item, Mapping):
+                continue
+            if str(item.get("tool_name") or "").casefold() != tool_name.casefold():
+                continue
+            milestone_id = str(item.get("id") or "").strip()
+            if milestone_id:
+                max_calls = item.get("max_calls")
+                calls = self._milestone_calls.get(milestone_id, 0)
+                if isinstance(max_calls, int) and max_calls > 0 and calls >= max_calls:
+                    continue
+                return milestone_id
+        return None
 
     def validation(self) -> dict[str, Any]:
         """Check the event linkage needed by the paired smoke gate."""
@@ -299,6 +381,7 @@ class WriterEventRecorder:
                 for step_id, tool_name in self._open_steps
             ],
             "events_complete": not incomplete and not self._open_steps,
+            "contract_milestones_started": dict(self._milestone_calls),
         }
 
 
@@ -610,10 +693,30 @@ def build_writer_request_text(
             "\n\nOffline trajectory context (evidence only; do not execute):\n"
             + json.dumps(context, ensure_ascii=False, indent=2)
         )
+    contract_instruction = (
+        "\n\nIntegration extension: execution_plan may include a milestones array. "
+        "Create one milestone for every required business action and preserve fan-out, "
+        "pagination, write-then-verify, and multi-stage dependencies. Each milestone "
+        "uses this schema: {id, goal, tool_name, required, depends_on, "
+        "required_parameters, min_calls, max_calls, max_retries, parameter_bindings, "
+        "postcondition}. tool_name must be one exact name from the authoritative live "
+        "inventory. Use depends_on milestone IDs. Set bounded call counts only when the "
+        "task itself makes the bound explicit; otherwise omit max_calls. A parameter "
+        "binding maps a target input name to {from_milestone, output_path}. Keep the "
+        "existing Writer v1 fields unchanged."
+        if language != "zh"
+        else "\n\n接入扩展：execution_plan 可增加 milestones 数组。每个必需业务动作都应有独立 "
+        "milestone，并保留 fan-out、分页、写后验证和多阶段依赖。每项采用字段 "
+        "{id, goal, tool_name, required, depends_on, required_parameters, min_calls, "
+        "max_calls, max_retries, parameter_bindings, postcondition}。tool_name 必须逐字使用"
+        "上方权威运行时清单中的名称，depends_on 使用 milestone id。只有任务本身明确"
+        "调用上限时才填写 max_calls，否则省略。parameter_bindings 将目标参数映射为 "
+        "{from_milestone, output_path}。保留 Writer v1 原有字段不变。"
+    )
     return (
         f"{template}\n\n{alignment}"
         f"{json.dumps(tools, ensure_ascii=False, indent=2)}"
-        f"{context_text}\n\n{label}\n{query}"
+        f"{contract_instruction}{context_text}\n\n{label}\n{query}"
     )
 
 
@@ -637,6 +740,8 @@ def align_capability_match(
         "glob": ("glob",),
         "ls": ("glob",),
         "apply_patch": ("edit_file", "write_file"),
+        "write_file": ("write_file", "edit_file"),
+        "edit_file": ("edit_file", "write_file"),
         "deletefile": ("bash",),
         "runcommand": ("bash",),
         "checkcommandstatus": ("bash",),
@@ -660,46 +765,77 @@ def align_capability_match(
         difficulty.get("missing_tools", []) if isinstance(difficulty, Mapping) else []
     )
     report_missing = raw_report_missing if isinstance(raw_report_missing, list) else []
-    candidates = [(candidate, "writer_report") for candidate in report_tools] + [
-        (candidate, "capability_fallback") for candidate in core_match.get("available_tools", [])
-    ]
-    for candidate, source in candidates:
-        label = _extract_tool_label(candidate)
-        exact = live_by_fold.get(label.casefold())
-        mapped: tuple[str, ...]
-        if exact:
-            mapped = (exact,)
-        elif label.casefold() in {"run_mcp", "mcp"}:
-            # The Writer already sees the exact live inventory.  Expanding one
-            # generic MCP label to every server tool destroyed its precise
-            # selection and greatly enlarged the actor's search space.
-            mapped = ()
-        else:
-            mapped = tuple(
-                live_by_fold[name.casefold()]
-                for name in legacy.get(label.casefold(), ())
-                if name.casefold() in live_by_fold
-            )
-        if not mapped:
-            unmapped.append(label)
-            continue
-        for name in mapped:
-            if name not in selected:
-                selected.append(name)
-            details.append(
-                {
-                    "source_label": label,
-                    "live_tool_name": name,
-                    "mapping": "exact" if exact else "openharness_adapter_alias",
-                    "source": source,
-                }
-            )
+    raw_report_requirements = (
+        difficulty.get("missing_tool_requirements", [])
+        if isinstance(difficulty, Mapping)
+        else []
+    )
+    report_requirement_missing = [
+        str(item.get("missing_tool") or item.get("capability") or "").strip()
+        for item in raw_report_requirements
+        if isinstance(item, Mapping)
+        and str(item.get("missing_tool") or item.get("capability") or "").strip()
+    ] if isinstance(raw_report_requirements, list) else []
+    fallback_tools = list(core_match.get("available_tools", []))
+
+    def add_candidates(candidates: Sequence[tuple[Any, str]]) -> None:
+        nonlocal selected
+        for candidate, source in candidates:
+            label = _extract_tool_label(candidate)
+            exact = live_by_fold.get(label.casefold())
+            mapped: tuple[str, ...]
+            if exact:
+                mapped = (exact,)
+            elif label.casefold() in {"run_mcp", "mcp"}:
+                # The Writer already sees the exact live inventory.  Expanding one
+                # generic MCP label to every server tool destroyed its precise
+                # selection and greatly enlarged the actor's search space.
+                mapped = ()
+            else:
+                mapped = tuple(
+                    live_by_fold[name.casefold()]
+                    for name in legacy.get(label.casefold(), ())
+                    if name.casefold() in live_by_fold
+                )
+            if not mapped:
+                unmapped.append(label)
+                continue
+            for name in mapped:
+                if name not in selected:
+                    selected.append(name)
+                details.append(
+                    {
+                        "source_label": label,
+                        "live_tool_name": name,
+                        "mapping": "exact" if exact else "openharness_adapter_alias",
+                        "source": source,
+                    }
+                )
+
+    add_candidates([(candidate, "writer_report") for candidate in report_tools])
+    # Capability matching is a legacy recovery path.  Once Writer selected at
+    # least one exact live tool, broad keyword categories must not add unrelated
+    # tools back into the Actor search space.
+    if not selected:
+        add_candidates(
+            [(candidate, "capability_fallback") for candidate in fallback_tools]
+        )
     return {
         "available_tools": selected,
         "missing_tools": list(
             dict.fromkeys(
                 str(value)
-                for value in list(report_missing) + list(core_match.get("missing_tools", []))
+                for value in (
+                    list(report_missing)
+                    + report_requirement_missing
+                    + (
+                        list(core_match.get("missing_tools", []))
+                        if not report_tools
+                        and not report_missing
+                        and not report_requirement_missing
+                        else []
+                    )
+                )
                 if str(value).strip()
             )
         ),
@@ -722,31 +858,74 @@ def _prepare_report_for_handoff(
     *,
     query: str,
     report: Mapping[str, Any],
-    raw_response: str,
-    live_tool_names: Sequence[str],
+    live_tool_schemas: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    live_tool_names = tuple(
+        name
+        for name, _ in (_tool_name_and_description(schema) for schema in live_tool_schemas)
+        if name
+    )
+    # Raw model output and Writer-generated tool-list fields used to feed back
+    # into keyword matching.  Match task semantics only; exact report tool names
+    # are handled separately by ``align_capability_match`` below.
+    matching_report = copy.deepcopy(dict(report))
+    matching_difficulty = matching_report.get("difficulty_profile")
+    if isinstance(matching_difficulty, dict):
+        matching_difficulty["available_tools"] = []
+        matching_difficulty["missing_tools"] = []
     core_match = bindings.match_openharness_capabilities(
         query,
-        report,
-        raw_response,
+        matching_report,
+        "",
     )
     aligned = align_capability_match(
         core_match,
         report=report,
         live_tool_names=live_tool_names,
     )
+    core_match = dict(core_match)
+    core_match["available_tools"] = list(aligned.get("available_tools", []))
+    core_match["missing_tools"] = list(aligned.get("missing_tools", []))
     prepared = copy.deepcopy(dict(report))
     difficulty = prepared.get("difficulty_profile")
     if isinstance(difficulty, dict):
-        difficulty["available_tools"] = list(core_match.get("available_tools", []))
-        difficulty["missing_tools"] = list(core_match.get("missing_tools", []))
-        difficulty["missing_tool_requirements"] = list(
-            core_match.get("missing_tool_requirements", [])
-        )
+        report_tools = difficulty.get("available_tools", [])
+        report_tools = report_tools if isinstance(report_tools, list) else []
+        difficulty["available_tools"] = list(aligned.get("available_tools", []))
+        difficulty["missing_tools"] = list(aligned.get("missing_tools", []))
+        raw_requirements = difficulty.get("missing_tool_requirements", [])
+        if isinstance(raw_requirements, list) and raw_requirements:
+            requirements = raw_requirements
+        elif report_tools:
+            # Do not reintroduce broad keyword-inferred requirements when the
+            # Writer already named exact live tools.
+            requirements = []
+        else:
+            requirements = list(core_match.get("missing_tool_requirements", []))
+        difficulty["missing_tool_requirements"] = requirements
+        core_match["missing_tool_requirements"] = copy.deepcopy(requirements)
         difficulty["required_capabilities"] = list(
             core_match.get("required_capabilities", [])
         )
-    return prepared, dict(core_match), aligned
+    return prepared, core_match, aligned
+
+
+def _attach_explicit_execution_contract(
+    report: Mapping[str, Any],
+    *,
+    live_tool_schemas: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose explicit Writer milestones to the sufficiency judge when present."""
+    prepared = copy.deepcopy(dict(report))
+    contract = _load_execution_contract_builder()(
+        prepared,
+        live_tool_schemas=live_tool_schemas,
+    )
+    if contract.get("source") == "writer_milestones":
+        plan = prepared.get("execution_plan")
+        if isinstance(plan, dict):
+            plan["milestones"] = copy.deepcopy(contract["milestones"])
+    return prepared
 
 
 def _build_judge_request(
@@ -935,6 +1114,10 @@ async def generate_writer_handoff(
     calls = [draft_call]
     initial_actor_output = draft_call.text
     report = _extract_report(bindings, initial_actor_output)
+    report = _attach_explicit_execution_contract(
+        report,
+        live_tool_schemas=live_tool_schemas,
+    )
     deterministic_writer = bindings.writer_harness_class(_StaticLLM(""))
     online_judgment = deterministic_writer.judge_online_completeness(
         initial_actor_output,
@@ -988,6 +1171,10 @@ async def generate_writer_handoff(
         regeneration_raw_response = retry_call.text
         actor_output = retry_call.text
         report = _extract_report(bindings, actor_output)
+        report = _attach_explicit_execution_contract(
+            report,
+            live_tool_schemas=live_tool_schemas,
+        )
         online_judgment = deterministic_writer.judge_online_completeness(
             actor_output,
             round_index=2,
@@ -1029,8 +1216,18 @@ async def generate_writer_handoff(
         bindings,
         query=query,
         report=report,
-        live_tool_names=live_names,
-        raw_response=actor_output,
+        live_tool_schemas=live_tool_schemas,
+    )
+    execution_contract = _load_execution_contract_builder()(
+        final_report,
+        live_tool_schemas=live_tool_schemas,
+    )
+    final_plan = final_report.get("execution_plan")
+    if not isinstance(final_plan, dict):
+        final_plan = {}
+        final_report["execution_plan"] = final_plan
+    final_plan["milestones"] = copy.deepcopy(
+        execution_contract.get("milestones", [])
     )
     execution_decision = _execution_decision(final_report, evaluation)
     judgment = _judgment_to_dict(online_judgment)

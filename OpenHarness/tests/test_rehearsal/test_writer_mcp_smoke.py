@@ -185,6 +185,24 @@ async def test_mcp_writer_handoff_precedes_tools_and_preserves_reset(
     assert result["director"]["event_validation"][
         "director_before_tool_completion"
     ] is True
+    assert result["writer"]["handoff"]["final_report"]["execution_plan"][
+        "milestones"
+    ][0]["tool_name"] == "mcp__lark_mcp__im_v1_chat_list"
+    director_decisions = [
+        value
+        for value in result["events"]
+        if value["type"] == "director_event"
+    ]
+    assert any(
+        value["event"] == "plan_check"
+        and value["data"]["milestone_id"] == "fallback-001"
+        for value in director_decisions
+    )
+    assert any(
+        value["event"] == "plan_result"
+        and value["data"]["milestone_id"] == "fallback-001"
+        for value in director_decisions
+    )
     assert result["state"]["exact_reset"] is True
     event_types = [value["type"] for value in result["events"]]
     assert event_types.index("global_plan_created") < event_types.index(

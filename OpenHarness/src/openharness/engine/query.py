@@ -960,6 +960,16 @@ async def _execute_tool_call(
                 is_error=True,
             )
 
+    if context.director is not None:
+        prepare_input = getattr(context.director, "prepare_input", None)
+        if callable(prepare_input):
+            tool_input = prepare_input(
+                tool_name,
+                tool_input,
+                context.tool_metadata,
+                tool_use_id,
+            )
+
     try:
         parsed_input = tool.input_model.model_validate(tool_input)
     except Exception as exc:
@@ -1087,6 +1097,7 @@ async def _execute_tool_call(
             tool_result.is_error,
             context.tool_metadata,
             tool_use_id,
+            result.output,
         )
     _record_tool_carryover(
         context,

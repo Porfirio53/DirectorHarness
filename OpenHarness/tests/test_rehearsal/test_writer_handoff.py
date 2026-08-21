@@ -22,6 +22,7 @@ from openharness.rehearsal.writer_handoff import (
     load_writer_core,
     verify_writer_deployment,
 )
+from director_harness.contract import build_execution_contract
 
 
 class SequencedWriterClient:
@@ -222,6 +223,131 @@ def test_mcp_wildcard_does_not_replace_precise_writer_selection() -> None:
     )
 
     assert aligned["available_tools"] == ["mcp__alpha__write_item"]
+
+
+def test_exact_writer_tools_exclude_broad_capability_fallbacks() -> None:
+    aligned = align_capability_match(
+        {
+            "available_tools": [
+                "read_file｜read a file",
+                "glob｜broad keyword fallback",
+            ],
+            "missing_tools": ["浏览器交互 缺少可确认的已发现工具"],
+            "missing_tool_requirements": [
+                {
+                    "missing_tool": "浏览器交互 缺少可确认的已发现工具",
+                }
+            ],
+            "required_capabilities": ["文件与代码检索", "浏览器交互"],
+        },
+        report={
+            **_report(),
+            "difficulty_profile": {
+                **_report()["difficulty_profile"],
+                "available_tools": ["read_file"],
+            },
+        },
+        live_tool_names=["read_file", "glob"],
+    )
+
+    assert aligned["available_tools"] == ["read_file"]
+    assert aligned["missing_tools"] == []
+
+
+def test_legacy_writer_report_gets_non_blocking_execution_contract() -> None:
+    contract = build_execution_contract(
+        _report(),
+        live_tool_schemas=[
+            {"name": "read_file"},
+            {"name": "write_file"},
+        ],
+    )
+
+    assert contract["source"] == "writer_legacy_fallback"
+    assert [item["tool_name"] for item in contract["milestones"]] == [
+        "read_file",
+        "write_file",
+    ]
+    assert all("max_calls" not in item for item in contract["milestones"])
+
+
+@pytest.mark.asyncio
+async def test_structured_writer_milestones_survive_actor_handoff() -> None:
+    report = _report()
+    report["execution_plan"]["milestones"] = [
+        {
+            "id": "read-input",
+            "goal": "Read the input",
+            "tool_name": "read_file",
+            "required": True,
+            "min_calls": 1,
+            "postcondition": "source content is available",
+        },
+        {
+            "id": "write-output",
+            "goal": "Write the result",
+            "tool_name": "write_file",
+            "required": True,
+            "depends_on": ["read-input", "missing-milestone"],
+            "max_calls": 1,
+            "parameter_bindings": {
+                "path": {
+                    "from_milestone": "read-input",
+                    "output_path": "output_path",
+                }
+            },
+        },
+    ]
+    client = SequencedWriterClient([report, _evaluation(91)])
+
+    result = await generate_writer_handoff(
+        api_client=client,
+        model="offline-writer",
+        actor_model="offline-actor",
+        workspace_root=_workspace_root(),
+        query="Read and write a result.",
+        live_tool_schemas=[
+            {
+                "name": "read_file",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"path": {"type": "string"}},
+                    "required": ["path"],
+                },
+            },
+            {
+                "name": "write_file",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"},
+                        "content": {"type": "string"},
+                    },
+                    "required": ["path", "content"],
+                },
+            },
+        ],
+    )
+
+    assert result.execution_contract["source"] == "writer_milestones"
+    assert [item["id"] for item in result.execution_contract["milestones"]] == [
+        "read-input",
+        "write-output",
+    ]
+    assert result.actor_contract["execution_plan"]["milestones"][1]["max_calls"] == 1
+    assert result.execution_contract["milestones"][1]["min_calls"] == 1
+    assert result.execution_contract["milestones"][1]["depends_on"] == ["read-input"]
+    assert result.execution_contract["milestones"][1]["required_parameters"] == [
+        "path",
+        "content",
+    ]
+    assert '"milestones"' in client.requests[1].messages[0].text
+    assert result.to_dict(include_raw_response=False)["execution_contract"][
+        "source"
+    ] == "writer_milestones"
+    appendix = result.prompt_appendix()
+    assert '"execution_contract"' in appendix
+    assert "mandatory milestone" in appendix
 
 
 @pytest.mark.asyncio

@@ -1288,6 +1288,119 @@ class _OkTool(BaseTool):
         return ToolResult(output="ok", metadata={"sentinel": "metadata"})
 
 
+class _JsonSourceTool(BaseTool):
+    name = "source_tool"
+    description = "Returns a JSON token."
+    input_model = _OkInput
+
+    def is_read_only(self, arguments: BaseModel) -> bool:
+        return True
+
+    async def execute(
+        self,
+        arguments: BaseModel,
+        context: ToolExecutionContext,
+    ) -> ToolResult:
+        del arguments, context
+        return ToolResult(output='{\"token\":\"bound-token\"}')
+
+
+class _RequiredTokenTool(BaseTool):
+    name = "sink_tool"
+    description = "Consumes a required token."
+
+    class Input(BaseModel):
+        token: str
+
+    input_model = Input
+
+    def is_read_only(self, arguments: BaseModel) -> bool:
+        del arguments
+        return False
+
+    async def execute(
+        self,
+        arguments: BaseModel,
+        context: ToolExecutionContext,
+    ) -> ToolResult:
+        del context
+        return ToolResult(output=f"received:{arguments.token}")
+
+
+@pytest.mark.asyncio
+async def test_director_binding_is_applied_before_required_input_validation(
+    tmp_path: Path,
+) -> None:
+    from director_harness import DirectorHarness
+
+    registry = ToolRegistry()
+    registry.register(_JsonSourceTool())
+    registry.register(_RequiredTokenTool())
+    metadata: dict[str, object] = {
+        "session_id": "binding-query",
+        "writer_execution_contract": {
+            "schema_version": 1,
+            "source": "writer_milestones",
+            "milestones": [
+                {
+                    "id": "source",
+                    "tool_name": "source_tool",
+                    "min_calls": 1,
+                },
+                {
+                    "id": "sink",
+                    "tool_name": "sink_tool",
+                    "depends_on": ["source"],
+                    "min_calls": 1,
+                    "parameter_bindings": {
+                        "token": {
+                            "from_milestone": "source",
+                            "output_path": "token",
+                        }
+                    },
+                },
+            ],
+        },
+    }
+    context = QueryContext(
+        api_client=_NoopApiClient(),
+        tool_registry=registry,
+        permission_checker=PermissionChecker(
+            PermissionSettings(mode=PermissionMode.FULL_AUTO)
+        ),
+        cwd=tmp_path,
+        model="claude-test",
+        system_prompt="system",
+        max_tokens=1,
+        max_turns=1,
+        tool_metadata=metadata,
+        director=DirectorHarness(),
+    )
+
+    source_result = await _execute_tool_call(
+        context,
+        "source_tool",
+        "source-call",
+        {},
+    )
+    sink_result = await _execute_tool_call(
+        context,
+        "sink_tool",
+        "sink-call",
+        {},
+    )
+
+    assert source_result.is_error is False
+    assert sink_result.is_error is False
+    assert sink_result.content == "received:bound-token"
+    assert any(
+        event.event == "plan_check"
+        and event.tool_use_id == "sink-call"
+        and event.data["bound_parameters"] == ["token"]
+        for event in context.director.events
+    )
+
+
 class _BoomTool(BaseTool):
     name = "boom_tool"
     description = "Always raises."

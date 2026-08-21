@@ -1245,6 +1245,11 @@ async def _run_trial(
             tool_metadata={
                 "session_id": f"mcp-persona-{task_id}-trial-{trial}",
                 "mcp_manager": manager,
+                "writer_execution_contract": (
+                    writer_handoff.execution_contract
+                    if writer_handoff is not None
+                    else None
+                ),
             },
             director=director,
         )

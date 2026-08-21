@@ -457,6 +457,11 @@ async def execute_harnessbench_round(
                     "Writer did not produce a content-complete final_scripts "
                     "execution input"
                 )
+            # Keep the contract in the same mutable metadata object consumed by
+            # QueryContext and Director; no new execution path is introduced.
+            bundle.engine.tool_metadata["writer_execution_contract"] = (
+                writer_handoff.execution_contract
+            )
             writer_recorder = WriterEventRecorder(writer_handoff)
             writer_report_file = (
                 state_root

@@ -5,5 +5,13 @@ OpenHarness 运行时按需导入，避免将内部目录、日志实现暴露�
 """
 
 from .harness import DirectorHarness, DirectorDecision, DirectorRequest, create_from_environment
+from .contract import ExecutionMilestone, build_execution_contract
 
-__all__ = ["DirectorHarness", "DirectorDecision", "DirectorRequest", "create_from_environment"]
+__all__ = [
+    "DirectorHarness",
+    "DirectorDecision",
+    "DirectorRequest",
+    "ExecutionMilestone",
+    "build_execution_contract",
+    "create_from_environment",
+]

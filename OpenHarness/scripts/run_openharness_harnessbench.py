@@ -175,6 +175,28 @@ def _resolve(path: Path, base: Path) -> Path:
     return (base / expanded).resolve() if not expanded.is_absolute() else expanded.resolve()
 
 
+def _prepend_sys_path(path: Path) -> None:
+    """Make one workspace module root importable in the current process."""
+
+    value = str(path.resolve())
+    if value not in sys.path:
+        sys.path.insert(0, value)
+
+
+def _prepend_pythonpath(existing: str | None, paths: Sequence[Path]) -> str:
+    """Prefix required source roots without discarding the caller's paths."""
+
+    entries: list[str] = []
+    for path in paths:
+        value = str(path.resolve())
+        if value not in entries:
+            entries.append(value)
+    for value in (existing or "").split(os.pathsep):
+        if value and value not in entries:
+            entries.append(value)
+    return os.pathsep.join(entries)
+
+
 def _writer_deployment(
     args: argparse.Namespace,
     *,
@@ -183,15 +205,16 @@ def _writer_deployment(
 ) -> dict[str, Any] | None:
     if args.openharness_mode != "writer_harness":
         return None
-    from openharness.rehearsal.writer_handoff import (
-        verify_writer_deployment,
-    )
-
     workspace_root = (
         _resolve(args.writer_workspace_root, invocation_dir)
         if args.writer_workspace_root is not None
         else openharness_root.parent.resolve()
     )
+    _prepend_sys_path(workspace_root)
+    from openharness.rehearsal.writer_handoff import (
+        verify_writer_deployment,
+    )
+
     archive = (
         _resolve(args.writer_archive, invocation_dir)
         if args.writer_archive is not None
@@ -216,6 +239,12 @@ def _writer_deployment(
 
 
 def _run_adapter(args: argparse.Namespace) -> int:
+    project_root = (
+        args.writer_workspace_root.resolve()
+        if args.writer_workspace_root is not None
+        else Path(__file__).resolve().parents[2]
+    )
+    _prepend_sys_path(project_root)
     from openharness.rehearsal.harnessbench_runtime import (
         HarnessBenchRoundConfig,
         execute_harnessbench_round,
@@ -228,14 +257,6 @@ def _run_adapter(args: argparse.Namespace) -> int:
             print(f"env file not found: {env_file}", file=sys.stderr)
             return 20
         load_dotenv(env_file, override=True)
-    if args.director_harness_enabled:
-        project_root = (
-            args.writer_workspace_root.resolve()
-            if args.writer_workspace_root is not None
-            else Path(__file__).resolve().parents[2]
-        )
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
 
     config = HarnessBenchRoundConfig(
         workspace=args.workspace,
@@ -1191,9 +1212,21 @@ def _run_suite(args: argparse.Namespace) -> int:
             },
         )
         repeat_env = env.copy()
+        project_root = (
+            args.writer_workspace_root.resolve()
+            if args.writer_workspace_root is not None
+            else openharness_root.parent.resolve()
+        )
         repeat_env.update(
             {
-                "PYTHONPATH": str(harnessbench_root / "src"),
+                "PYTHONPATH": _prepend_pythonpath(
+                    repeat_env.get("PYTHONPATH"),
+                    (
+                        project_root,
+                        openharness_root / "src",
+                        harnessbench_root / "src",
+                    ),
+                ),
                 "HARNESSBENCH_APP_CONFIG": str(app_config),
                 "HARNESSBENCH_HARNESS_CONFIG": str(harness_config),
             }
