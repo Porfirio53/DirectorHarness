@@ -18,7 +18,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean, median
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, MutableMapping, Sequence
 
 from dotenv import dotenv_values, load_dotenv
 
@@ -257,6 +257,7 @@ def _run_adapter(args: argparse.Namespace) -> int:
             print(f"env file not found: {env_file}", file=sys.stderr)
             return 20
         load_dotenv(env_file, override=True)
+    _apply_authoritative_openai_environment(os.environ)
 
     config = HarnessBenchRoundConfig(
         workspace=args.workspace,
@@ -368,7 +369,34 @@ def _load_environment(env_file: Path) -> dict[str, str]:
     for key, value in values.items():
         if value is not None:
             env[str(key)] = str(value)
+    _apply_authoritative_openai_environment(env)
     return env
+
+
+def _apply_authoritative_openai_environment(
+    env: MutableMapping[str, str],
+) -> None:
+    """Route every HarnessBench model phase through the selected env workspace."""
+
+    base_url = str(env.get("OPENAI_API_BASE") or "").strip()
+    api_key = str(env.get("OPENAI_API_KEY") or "").strip()
+    if base_url:
+        for name in (
+            "OPENHARNESS_BASE_URL",
+            "OPENAI_BASE_URL",
+            "WRITER_BASE_URL",
+            "ACTOR_BASE_URL",
+        ):
+            env[name] = base_url
+    if api_key:
+        for name in (
+            "OPENHARNESS_OPENAI_API_KEY",
+            "OPENHARNESS_DASHSCOPE_API_KEY",
+            "DASHSCOPE_API_KEY",
+            "WRITER_API_KEY",
+            "ACTOR_API_KEY",
+        ):
+            env[name] = api_key
 
 
 def _configure_grading_environment(
@@ -1406,6 +1434,7 @@ def _run_preflight(args: argparse.Namespace) -> int:
             model=args.model,
             active_profile=args.profile,
             api_format=args.api_format,
+            base_url=env.get("OPENAI_API_BASE") or None,
         )
         auth = settings.resolve_auth()
         if not auth.value:

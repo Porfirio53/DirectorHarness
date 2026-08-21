@@ -115,18 +115,12 @@ cp .env.example .env
 
 | 变量 | 用途 |
 |---|---|
-| `OPENAI_API_BASE`、`OPENAI_API_KEY` | 正式 benchmark 的 Actor、Writer 和评分模型；全量脚本当前锁定 `qwen3.6-plus` |
-| `WRITER_MODEL`、`WRITER_BASE_URL`、`WRITER_API_KEY` | 单轮、多轮和 Web UI 的 Writer 评审模型 |
-| `ACTOR_MODEL`、`ACTOR_BASE_URL`、`ACTOR_API_KEY`、`ACTOR_API_FORMAT` | 在线入口中的 OpenHarness Actor |
+| `OPENAI_API_BASE`、`OPENAI_API_KEY` | 所有正式 benchmark，以及 Web UI 发起的单轮/多轮 Actor、Writer 与评分模型；切换 API 工作空间只需修改这两项 |
+| `WRITER_MODEL` | 单轮、多轮和 Web UI 的 Writer 模型；`WRITER_BASE_URL`、`WRITER_API_KEY` 仅作旧入口兼容 |
+| `ACTOR_MODEL`、`ACTOR_API_FORMAT` | 在线入口中的 OpenHarness Actor；`ACTOR_BASE_URL`、`ACTOR_API_KEY` 仅作旧入口兼容 |
 | `OH_BIN`、`OPENHARNESS_SRC` | OpenHarness CLI 和本仓库源码路径 |
 
-`.env` 会被正式实验脚本显式读取；直接运行在线 CLI 或 UI 时，需要先导出变量：
-
-```bash
-set -a
-source .env
-set +a
-```
+正式实验脚本和 Web UI 会直接读取根目录 `.env`。为了保持 Writer source-lock，裸 Python CLI 仍沿用 `WRITER_*`、`ACTOR_*` 兼容变量；需要直接调用时可先使用 `.env.example` 中的别名导出方式。
 
 ## 在线运行
 

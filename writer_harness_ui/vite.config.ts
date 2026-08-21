@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -43,6 +43,14 @@ function getRuntimeEnv(settings?: Record<string, string>, directorHarnessEnabled
   for (const [key, envName] of Object.entries(runtimeSettingEnvNames)) {
     const value = settings?.[key];
     if (typeof value === "string" && value.trim()) runtimeEnv[envName] = value.trim();
+  }
+  if (runtimeEnv.OPENAI_API_BASE?.trim()) {
+    runtimeEnv.WRITER_BASE_URL = runtimeEnv.OPENAI_API_BASE.trim();
+    runtimeEnv.ACTOR_BASE_URL = runtimeEnv.OPENAI_API_BASE.trim();
+  }
+  if (runtimeEnv.OPENAI_API_KEY?.trim()) {
+    runtimeEnv.WRITER_API_KEY = runtimeEnv.OPENAI_API_KEY.trim();
+    runtimeEnv.ACTOR_API_KEY = runtimeEnv.OPENAI_API_KEY.trim();
   }
   const openharnessSrc = runtimeEnv.OPENHARNESS_SRC || path.join(projectRoot, "OpenHarness", "src");
   runtimeEnv.PYTHONPATH = [projectRoot, openharnessSrc, runtimeEnv.PYTHONPATH].filter(Boolean).join(path.delimiter);
@@ -363,16 +371,22 @@ function writerHarnessApi(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), writerHarnessApi()],
-  base: "./",
-  server: {
-    host: "127.0.0.1",
-    port: 8090,
-    strictPort: true,
-  },
-  build: {
-    outDir: "dist",
-    emptyOutDir: true,
-  },
+export default defineConfig(({ mode }) => {
+  const rootEnv = loadEnv(mode, projectRoot, "");
+  for (const name of ["OPENAI_API_BASE", "OPENAI_API_KEY"] as const) {
+    if (rootEnv[name]?.trim()) process.env[name] = rootEnv[name].trim();
+  }
+  return {
+    plugins: [react(), writerHarnessApi()],
+    base: "./",
+    server: {
+      host: "127.0.0.1",
+      port: 8090,
+      strictPort: true,
+    },
+    build: {
+      outDir: "dist",
+      emptyOutDir: true,
+    },
+  };
 });

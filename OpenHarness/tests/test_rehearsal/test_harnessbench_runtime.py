@@ -340,6 +340,26 @@ def test_usage_proxy_route_has_upstream_but_no_credentials(
     assert "must-not-be-copied" not in body
 
 
+def test_usage_proxy_route_prefers_root_env_workspace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = replace(_round_config(tmp_path / "sandbox"), active_profile="qwen")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    routes = tmp_path / "routes.json"
+    monkeypatch.setenv("OPENHARNESS_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("OPENAI_API_BASE", "https://workspace.example.test/v1")
+    monkeypatch.setenv("HARNESSBENCH_LLM_PROXY_URL", "http://127.0.0.1:4321")
+    monkeypatch.setenv("HARNESSBENCH_LLM_PROXY_ROUTES", str(routes))
+
+    register_usage_proxy_route(config)
+    payload = json.loads(routes.read_text(encoding="utf-8"))
+    route = next(iter(payload.values()))
+
+    assert route["upstream"] == "https://workspace.example.test/v1"
+
+
 @pytest.mark.asyncio
 async def test_multiround_keeps_session_id_and_repeat_isolation(
     tmp_path: Path,

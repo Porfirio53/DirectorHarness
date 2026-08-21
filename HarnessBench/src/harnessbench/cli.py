@@ -195,7 +195,7 @@ def main() -> int:
                 indent=2,
             )
         )
-        return 0
+        return 0 if ok else 1
 
     if args.cmd == "run-suite":
         outputs = []
@@ -264,13 +264,15 @@ def main() -> int:
                 continue
             elapsed_sec = result.elapsed_sec
             ok = getattr(result.adapter_result, "ok", False)
+            if not ok:
+                had_failures = True
             print(
                 f"[harnessbench] run-suite [{idx}/{total}] {task_id} finished adapter_ok={ok} elapsed={elapsed_sec}s",
             )
             outputs.append(
                 {
                     "task_id": result.task_id,
-                    "ok": True,
+                    "ok": ok,
                     "elapsed_sec": elapsed_sec,
                     "api_model_slug": result.api_model_slug,
                     "api_model_label": result.api_model_label,

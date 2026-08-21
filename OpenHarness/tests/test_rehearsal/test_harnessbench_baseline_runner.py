@@ -8,7 +8,9 @@ from email.message import Message
 from pathlib import Path
 
 from scripts.run_openharness_harnessbench import (
+    _apply_authoritative_openai_environment,
     _configure_grading_environment,
+    _load_environment,
     _load_task_manifest,
     _prepare_output_dir,
     _resume_should_retry,
@@ -39,6 +41,43 @@ def test_full_grading_environment_is_explicit_and_metadata_has_no_secret() -> No
     assert env["RUBRIC_MODEL"] == "judge-model"
     assert metadata["security_grade"] == "enabled"
     assert secret not in json.dumps(metadata)
+
+
+def test_root_env_is_authoritative_for_every_harnessbench_model_phase(
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "OPENAI_API_BASE=https://workspace.example.test/v1\n"
+        "OPENAI_API_KEY=test-authoritative-key\n",
+        encoding="utf-8",
+    )
+
+    env = _load_environment(env_file)
+
+    assert env["OPENHARNESS_BASE_URL"] == "https://workspace.example.test/v1"
+    assert env["OPENAI_BASE_URL"] == "https://workspace.example.test/v1"
+    assert env["WRITER_BASE_URL"] == "https://workspace.example.test/v1"
+    assert env["ACTOR_BASE_URL"] == "https://workspace.example.test/v1"
+    assert env["OPENHARNESS_OPENAI_API_KEY"] == "test-authoritative-key"
+    assert env["OPENHARNESS_DASHSCOPE_API_KEY"] == "test-authoritative-key"
+    assert env["DASHSCOPE_API_KEY"] == "test-authoritative-key"
+    assert env["WRITER_API_KEY"] == "test-authoritative-key"
+    assert env["ACTOR_API_KEY"] == "test-authoritative-key"
+
+
+def test_root_env_overrides_stale_runtime_aliases() -> None:
+    env = {
+        "OPENAI_API_BASE": "https://new-workspace.example.test/v1",
+        "OPENAI_API_KEY": "test-new-key",
+        "OPENHARNESS_BASE_URL": "https://old-workspace.example.test/v1",
+        "OPENHARNESS_DASHSCOPE_API_KEY": "test-old-key",
+    }
+
+    _apply_authoritative_openai_environment(env)
+
+    assert env["OPENHARNESS_BASE_URL"] == "https://new-workspace.example.test/v1"
+    assert env["OPENHARNESS_DASHSCOPE_API_KEY"] == "test-new-key"
 
 
 def test_outcome_only_grading_marks_security_unassessed() -> None:

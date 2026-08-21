@@ -198,6 +198,7 @@ def register_usage_proxy_route(config: HarnessBenchRoundConfig) -> str | None:
         model=config.model,
         active_profile=config.active_profile,
         api_format=config.api_format,
+        base_url=os.environ.get("OPENAI_API_BASE") or None,
     )
     upstream = str(settings.base_url or "").strip().rstrip("/")
     api_format = str(settings.api_format or config.api_format or "anthropic")
@@ -246,7 +247,7 @@ def _build_tuned_openai_client(
         model=config.model,
         active_profile=config.active_profile,
         api_format=config.api_format,
-        base_url=proxy_url,
+        base_url=proxy_url or os.environ.get("OPENAI_API_BASE") or None,
     )
     if settings.api_format not in {"openai", "openai_compat"}:
         raise ValueError("temperature/seed are supported only for OpenAI-compatible profiles")
